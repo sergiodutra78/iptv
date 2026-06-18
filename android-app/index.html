@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KinetiQ IPTV</title>
+    <style>
+      body {
+        margin: 0;
+        background-color: #000000;
+        color: #ffffff;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      #loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #000000;
+        z-index: 9999;
+      }
+      .logo-icon {
+        width: 80px;
+        height: 80px;
+        background-color: #e50914;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 40px;
+        font-weight: bold;
+        margin-bottom: 24px;
+        animation: pulse 2s infinite ease-in-out;
+        box-shadow: 0 0 20px rgba(229, 9, 20, 0.5);
+      }
+      .loading-text {
+        font-size: 24px;
+        font-style: italic;
+        font-weight: 800;
+        letter-spacing: -0.05em;
+        margin-bottom: 32px;
+        opacity: 0.9;
+      }
+      .progress-bar-container {
+        width: 200px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .progress-bar {
+        height: 100%;
+        width: 30%;
+        background: #e50914;
+        animation: loading 1.5s infinite ease-in-out;
+      }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(229, 9, 20, 0.5); }
+        50% { transform: scale(1.05); box-shadow: 0 0 40px rgba(229, 9, 20, 0.8); }
+      }
+      @keyframes loading {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(400%); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div id="loader">
+        <div class="logo-icon">K</div>
+        <div class="loading-text">KINETIQ IPTV</div>
+        <div class="progress-bar-container">
+          <div class="progress-bar"></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

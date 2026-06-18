@@ -1,0 +1,10 @@
+{
+	"appId": "com.kinetiq.iptv",
+	"appName": "KinetiQ IPTV",
+	"webDir": "dist",
+	"plugins": {
+		"CapacitorHttp": {
+			"enabled": true
+		}
+	}
+}

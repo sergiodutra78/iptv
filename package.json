@@ -1,0 +1,12 @@
+{
+  "name": "desktop-app",
+  "private": true,
+  "version": "0.0.0",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "dependencies": {
+    "hls.js": "^1.6.15",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}

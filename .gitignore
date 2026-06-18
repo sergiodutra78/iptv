@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+node_modules_old/
+**/node_modules/
+**/node_modules_old/
+
+# Build output
+dist/
+dist-electron/
+desktop-app/dist/
+desktop-app/dist-electron/
+desktop-app-mac-build/
+**/--win32-x64/
+**/*-win32-x64/
+build/
+out/
+
+# Binaries / packaged apps
+*.exe
+*.dmg
+*.app
+*.asar
+*.blockmap
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Cache
+.cache/
+.vite/
+*.tsbuildinfo
+
+# Misc temp/test artifacts
+test_m3u*.txt
+playlist_sample.txt
+*.txt
+build_error.log
+debug.log
+
+# Android SDK / JDK / build (should not be in git)
+android-app/android-sdk/
+android-app/java_jdk/
+android-app/java_jdk_21/
+**/jdk-*/
+android-app/cmdline-tools.zip
+android-app/java17.zip
+android-app/java21.zip
+android-app/dist/
+android-app/android/.gradle/
+android-app/android/app/build/
+android-app/android/build/
+**/.gradle/
+*.zip
+*.apk
+*.keystore
+
+# Mac build copy (regenerated; mac source lives in mac-source/)
+desktop-app-mac-build/
+
+# Downloaded SDKs
+download_sdk.bat
+iptv.lnk
