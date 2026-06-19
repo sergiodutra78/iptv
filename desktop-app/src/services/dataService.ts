@@ -1,4 +1,5 @@
 import { M3UParser, type PlaylistData, type Channel } from './m3uParser';
+import { withTimeout } from '../utils/withTimeout';
 
 const CACHE_KEY = 'iptv_playlist_cache';
 const CACHE_TIME_KEY = 'iptv_cache_timestamp';
@@ -82,66 +83,68 @@ export class DataService {
     }
 
     /**
-     * Precarga las imágenes principales para que aparezcan al instante al abrir la app.
+     * Precarga (pre-calienta) las imágenes principales en la Cache API para que
+     * al abrir la app aparezcan al instante. Guarda el blob en disco igual que
+     * CachedImage, así el servidor de logos (que no manda headers de caché) no se
+     * redescarga en cada navegación.
      *
-     * Usa `new Image()` (NO la Cache API, que se cuelga en Electron empaquetado vía
-     * file://). Chromium guarda cada imagen en su caché de disco automáticamente.
-     * Cada imagen tiene un timeout para que una URL muerta no trabe la barra de carga.
+     * Robustez: si la Cache API se cuelga (Electron file://), `withTimeout` aborta
+     * y el preload termina sin bloquear el arranque. Cada descarga tiene su timeout.
      */
-    private static preloadTopImages(channels: Channel[], onProgress?: (percent: number) => void): Promise<void> {
-        return new Promise((resolve) => {
-            const pick = (type: Channel['type'], limit: number) =>
-                channels.filter(c => c.type === type && c.logo).map(c => c.logo!).slice(0, limit);
+    private static async preloadTopImages(channels: Channel[], onProgress?: (percent: number) => void): Promise<void> {
+        const pick = (type: Channel['type'], limit: number) =>
+            channels.filter(c => c.type === type && c.logo).map(c => c.logo!).slice(0, limit);
 
-            // Scope "medio": inicio + películas + series destacadas + algunos canales
-            const uniqueLogos = Array.from(new Set([
-                ...pick('movie', 200),
-                ...pick('series', 100),
-                ...pick('live', 80),
-            ]));
+        // Scope "medio": inicio + películas + series destacadas + algunos canales
+        const uniqueLogos = Array.from(new Set([
+            ...pick('movie', 200),
+            ...pick('series', 100),
+            ...pick('live', 80),
+        ])).map(u => (u.startsWith('//') ? 'https:' + u : u));
 
-            const total = uniqueLogos.length;
-            if (total === 0) {
-                if (onProgress) onProgress(100);
-                resolve();
-                return;
+        const total = uniqueLogos.length;
+        if (total === 0) {
+            if (onProgress) onProgress(100);
+            return;
+        }
+
+        let cache: Cache | null = null;
+        try {
+            if ('caches' in window) {
+                cache = await withTimeout(caches.open('kinetiq-images'), 2000);
             }
+        } catch (e) {
+            // La Cache API no respondió: igual mostramos progreso completo y dejamos
+            // que CachedImage cachee al vuelo cuando el usuario navegue.
+            if (onProgress) onProgress(100);
+            return;
+        }
+        if (!cache) {
+            if (onProgress) onProgress(100);
+            return;
+        }
 
-            let loaded = 0;
-            let i = 0;
-            const CONCURRENCY = 16;
-            const PER_IMAGE_TIMEOUT = 4000;
+        let loaded = 0;
+        let i = 0;
+        const CONCURRENCY = 12;
 
-            const loadNext = () => {
-                if (i >= total) return;
-                const raw = uniqueLogos[i++];
-                let src = raw;
-                if (src.startsWith('//')) src = 'https:' + src;
-
-                const img = new Image();
-                let settled = false;
-                const finish = () => {
-                    if (settled) return;
-                    settled = true;
-                    loaded++;
-                    if (onProgress) onProgress(Math.floor((loaded / total) * 100));
-                    if (loaded >= total) {
-                        resolve();
-                    } else {
-                        loadNext();
+        const worker = async (): Promise<void> => {
+            while (i < total) {
+                const url = uniqueLogos[i++];
+                try {
+                    const has = await withTimeout(cache!.match(url), 1500);
+                    if (!has) {
+                        const res = await withTimeout(fetch(url), 5000);
+                        if (res.ok) await withTimeout(cache!.put(url, res), 3000);
                     }
-                };
-
-                const timer = setTimeout(finish, PER_IMAGE_TIMEOUT);
-                img.onload = () => { clearTimeout(timer); finish(); };
-                img.onerror = () => { clearTimeout(timer); finish(); };
-                img.src = src;
-            };
-
-            for (let k = 0; k < Math.min(CONCURRENCY, total); k++) {
-                loadNext();
+                } catch (e) { /* imagen muerta o timeout: seguir */ }
+                loaded++;
+                if (onProgress) onProgress(Math.floor((loaded / total) * 100));
             }
-        });
+        };
+
+        const workers = Array(Math.min(CONCURRENCY, total)).fill(0).map(() => worker());
+        await Promise.all(workers);
     }
 
     private static processData(data: PlaylistData) {

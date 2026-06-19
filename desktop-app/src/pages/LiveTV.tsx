@@ -10,23 +10,40 @@ import { EPGService, type EPGData } from '../services/epgService';
 const ITEMS_PER_PAGE = 30;
 
 // Componente para renderizar la tarjeta o fila de canal
-const ChannelItem = ({ channel, epgData, viewMode, onSelect, isSelected }: {
+const ChannelItem = ({ channel, epgData, viewMode, onSelect, isSelected, configToUse, epgLoading }: {
     channel: Channel,
     epgData: EPGData,
     viewMode: 'grid' | 'list',
     onSelect: (c: Channel) => void,
-    isSelected: boolean
+    isSelected: boolean,
+    configToUse: any,
+    epgLoading: boolean,
 }) => {
     const [localProgs, setLocalProgs] = useState<any[]>([]);
     const loadingShort = false;
 
-    // Solo usamos el EPG principal (ya cargado). NO hacemos una petición de red
-    // por cada tarjeta: con decenas de canales en pantalla saturaba las conexiones
-    // y frenaba la carga de los logos. El Short EPG se pide solo al reproducir.
     useEffect(() => {
+        // 1. Intentar con EPG completo (XMLTV)
         const progs = EPGService.getPrograms(channel, epgData);
-        setLocalProgs(progs && progs.length > 0 ? progs : []);
-    }, [channel, epgData]);
+        if (progs.length > 0) {
+            setLocalProgs(progs);
+            return;
+        }
+
+        // 2. Si el XMLTV todavía está cargando, esperar
+        if (epgLoading) return;
+
+        // 3. XMLTV sin match → usar Short EPG por stream_id (más fiable, caché propia)
+        const match = channel.url.match(/\/live\/[^/]+\/[^/]+\/(\d+)\.(ts|m3u8)/i);
+        const streamId = match ? match[1] : null;
+        const xc = configToUse?.xtreamCodes;
+
+        if (streamId && xc?.baseUrl && xc.username) {
+            EPGService.fetchShortEPG(streamId, xc.baseUrl, xc.username, xc.password)
+                .then(shorts => { if (shorts.length > 0) setLocalProgs(shorts); })
+                .catch(() => {});
+        }
+    }, [channel, epgData, epgLoading, configToUse]);
 
     const prog = EPGService.getCurrentProgram(localProgs);
     const progress = EPGService.getProgramProgress(prog);
@@ -269,6 +286,7 @@ const LiveTV = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(!DataService.hasData());
     const [epgData, setEpgData] = useState<EPGData>({});
+    const [epgLoading, setEpgLoading] = useState<boolean>(() => EPGService.getCachedEPG() === null);
     const [showChannelList, setShowChannelList] = useState(false);
     const [showEPGGrid, setShowEPGGrid] = useState(false);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -294,70 +312,71 @@ const LiveTV = () => {
         return filteredChannels.slice(0, visibleCount);
     }, [filteredChannels, visibleCount]);
 
-    // Carga la lista Premium si está configurada, o la lista de Uruguay por defecto
+    // Carga la lista y el EPG. Se llama una sola vez al montar el componente.
     useEffect(() => {
-        const storedConfig = localStorage.getItem('iptv_config');
-        if (storedConfig) {
-            try {
-                setConfigToUse(JSON.parse(storedConfig));
-            } catch (e) { }
-        }
         const urlToLoad = getActivePlaylistUrl() || "/uruguay.m3u";
         loadChannels(urlToLoad);
     }, []);
 
     const loadChannels = async (url: string) => {
-        // Si ya hay datos en el servicio, los usamos
+        // Leer config del localStorage directamente para no depender del estado async
+        let currentConfig: any = IPTV_CONFIG;
+        const storedConfig = localStorage.getItem('iptv_config');
+        if (storedConfig) {
+            try { currentConfig = JSON.parse(storedConfig); } catch (e) {}
+        }
+        setConfigToUse(currentConfig);
+
+        // FASE 1: Canales (desde caché si ya están disponibles)
         if (DataService.hasData()) {
             const liveOnly = DataService.getLiveSync();
             if (liveOnly.length > 0) {
                 setChannels(liveOnly);
-                const cats = ['Todos', ...Array.from(new Set(liveOnly.map(c => c.group)))];
-                setCategories(cats);
+                setCategories(['Todos', ...Array.from(new Set(liveOnly.map(c => c.group)))]);
                 setLoading(false);
-                return;
+            }
+        } else {
+            setLoading(true);
+            try {
+                const playlist = await DataService.getChannels(url);
+                const liveOnly = playlist.channels.filter(c => c.type === 'live');
+                setChannels(liveOnly);
+                setCategories(['Todos', ...Array.from(new Set(liveOnly.map(c => c.group)))]);
+            } catch (error) {
+                console.error("Error loading channels", error);
+            } finally {
+                setLoading(false);
             }
         }
 
-        setLoading(true);
-        try {
-            const playlist = await DataService.getChannels(url);
-            const liveOnly = playlist.channels.filter(c => c.type === 'live');
-            setChannels(liveOnly);
-
-            const cats = ['Todos', ...Array.from(new Set(liveOnly.map(c => c.group)))];
-            setCategories(cats);
-
-            // --- LÓGICA DE CARGA DE EPG ---
-            const currentConfig = configToUse; // Usar el estado actual
-
-            let epgUrlToFetch = currentConfig.epgUrl;
-
-            if (!epgUrlToFetch || epgUrlToFetch === "") {
-                if (playlist.epgUrl) {
-                    epgUrlToFetch = playlist.epgUrl;
-                } else if (currentConfig.xtreamCodes && currentConfig.xtreamCodes.username && currentConfig.xtreamCodes.password && currentConfig.xtreamCodes.baseUrl) {
-                    const base = currentConfig.xtreamCodes.baseUrl;
-                    if (base && base !== "TU_HOST_AQUI") {
-                        const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
-                        epgUrlToFetch = `${cleanBase}/xmltv.php?username=${currentConfig.xtreamCodes.username}&password=${currentConfig.xtreamCodes.password}`;
-                    }
-                }
-            }
-
-            if (epgUrlToFetch && epgUrlToFetch !== "") {
-                fetchEPG(epgUrlToFetch);
-            }
-        } catch (error) {
-            console.error("Error loading channels", error);
-        } finally {
-            setLoading(false);
+        // FASE 2: EPG completo (XMLTV). Si ya está en caché, aplica al instante.
+        // EPGService deduplica la descarga: si App.tsx ya inició el fetch, esperamos
+        // el mismo promise en lugar de lanzar una segunda descarga paralela.
+        const cachedEpg = EPGService.getCachedEPG();
+        if (cachedEpg) {
+            setEpgData(cachedEpg);
+            setEpgLoading(false);
+            return;
         }
-    };
 
-    const fetchEPG = async (url: string) => {
-        const data = await EPGService.fetchEPG(url);
-        setEpgData(data);
+        let epgUrl: string = currentConfig.epgUrl || '';
+        if (!epgUrl) {
+            const xc = currentConfig.xtreamCodes;
+            if (xc?.baseUrl && xc.baseUrl !== 'TU_HOST_AQUI' && xc.username) {
+                const cleanBase = xc.baseUrl.replace(/\/$/, '');
+                epgUrl = `${cleanBase}/xmltv.php?username=${xc.username}&password=${xc.password}`;
+            }
+        }
+
+        if (epgUrl) {
+            setEpgLoading(true);
+            EPGService.fetchEPG(epgUrl)
+                .then(data => { if (Object.keys(data).length > 0) setEpgData(data); })
+                .catch(() => {})
+                .finally(() => setEpgLoading(false));
+        } else {
+            setEpgLoading(false);
+        }
     };
 
     // Observer for infinite scroll
@@ -456,7 +475,8 @@ const LiveTV = () => {
                         />
                     </div>
                     <div className="flex gap-2 text-zinc-500 items-center text-xs">
-                        <Clock size={16} /> {Object.keys(epgData).length > 0 ? "EPG Cargada" : "Sin EPG"}
+                        <Clock size={16} />
+                        {epgLoading ? "Cargando EPG..." : Object.keys(epgData).length > 0 ? "EPG Cargada" : "Sin EPG"}
                     </div>
                     <div className="flex gap-2">
                         <button 
@@ -488,6 +508,8 @@ const LiveTV = () => {
                                             viewMode="grid"
                                             onSelect={setSelectedChannel}
                                             isSelected={selectedChannel ? (selectedChannel as any).url === channel.url : false}
+                                            configToUse={configToUse}
+                                            epgLoading={epgLoading}
                                         />
                                     ))}
                                 </div>
@@ -501,6 +523,8 @@ const LiveTV = () => {
                                             viewMode="list"
                                             onSelect={setSelectedChannel}
                                             isSelected={selectedChannel ? (selectedChannel as any).url === channel.url : false}
+                                            configToUse={configToUse}
+                                            epgLoading={epgLoading}
                                         />
                                     ))}
                                 </div>

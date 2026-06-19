@@ -14,10 +14,26 @@ export const EPG_TIME_SHIFT_HOURS: number = 3;
 
 export class EPGService {
     private static cache: { [url: string]: EPGData } = {};
+    private static fetchInProgress: { [url: string]: Promise<EPGData> } = {};
 
     static async fetchEPG(url: string): Promise<EPGData> {
         if (this.cache[url]) return this.cache[url];
+        if (url in this.fetchInProgress) return this.fetchInProgress[url];
 
+        const promise = this._doFetchEPG(url);
+        this.fetchInProgress[url] = promise;
+        try {
+            return await promise;
+        } finally {
+            delete this.fetchInProgress[url];
+        }
+    }
+
+    static isEPGLoading(): boolean {
+        return Object.keys(this.fetchInProgress).length > 0;
+    }
+
+    private static async _doFetchEPG(url: string): Promise<EPGData> {
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error('Error al descargar EPG');
@@ -167,6 +183,11 @@ export class EPGService {
 
     private static shortEpgCache: { [streamId: string]: EPGProgram[] } = {};
 
+    static getCachedEPG(): EPGData | null {
+        const keys = Object.keys(this.cache);
+        return keys.length > 0 ? this.cache[keys[0]] : null;
+    }
+
     static async fetchShortEPG(streamId: string, baseUrl: string, username: string, password: string): Promise<EPGProgram[]> {
         if (this.shortEpgCache[streamId]) return this.shortEpgCache[streamId];
 
@@ -180,39 +201,31 @@ export class EPGService {
             const data = await response.json();
             if (!data || !data.epg_listings) return [];
 
-            const programs: EPGProgram[] = data.epg_listings.map((item: any) => {
-                // El formato de hora suele ser "2026-03-18 10:00:00"
-                // O usa timestamps
-                const start = item.start_timestamp ? new Date(parseInt(item.start_timestamp) * 1000) : new Date(item.start);
+            // Decodifica base64 de forma segura: si falla, devuelve el string original
+            const safeB64 = (str: string): string => {
+                if (!str) return str;
+                try { return decodeURIComponent(escape(atob(str))); } catch { return str; }
+            };
+
+            const finalPrograms: EPGProgram[] = data.epg_listings.map((item: any) => {
+                const hasTs = !!(item.start_timestamp);
+                const start = hasTs ? new Date(parseInt(item.start_timestamp) * 1000) : new Date(item.start);
                 const stop = item.stop_timestamp ? new Date(parseInt(item.stop_timestamp) * 1000) : new Date(item.end);
-                
-                // Aplicar ajuste horario si es necesario
-                if (EPG_TIME_SHIFT_HOURS !== 0) {
+
+                // Unix timestamps are absolute UTC — no timezone shift needed.
+                // Only shift string-format dates (legacy fallback path).
+                if (!hasTs && EPG_TIME_SHIFT_HOURS !== 0) {
                     start.setHours(start.getHours() + EPG_TIME_SHIFT_HOURS);
                     stop.setHours(stop.getHours() + EPG_TIME_SHIFT_HOURS);
                 }
-                
+
                 return {
-                    start: start,
-                    stop: stop,
-                    title: atob(item.title) ? decodeURIComponent(escape(atob(item.title))) : item.title, // Algunos vienen en base64
-                    description: item.description ? (atob(item.description) ? decodeURIComponent(escape(atob(item.description))) : item.description) : ""
+                    start,
+                    stop,
+                    title: safeB64(item.title),
+                    description: item.description ? safeB64(item.description) : "",
                 };
             }).filter((p: any) => p.title);
-
-            // Intentar corregir base64 si falla
-            const finalPrograms = programs.map(p => {
-                try {
-                    // Si title tiene formato base64 válido y parseable
-                    if (/^[a-zA-Z0-9+/]+={0,2}$/.test(p.title) && p.title.length > 4) {
-                        p.title = decodeURIComponent(escape(atob(p.title)));
-                    }
-                    if (p.description && /^[a-zA-Z0-9+/]+={0,2}$/.test(p.description) && p.description.length > 4) {
-                        p.description = decodeURIComponent(escape(atob(p.description)));
-                    }
-                } catch (e) { }
-                return p;
-            });
 
             this.shortEpgCache[streamId] = finalPrograms;
             return finalPrograms;

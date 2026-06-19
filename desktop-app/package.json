@@ -21,7 +21,16 @@
       "output": "dist-electron"
     },
     "win": {
-      "target": "dir"
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "KinetiQ IPTV"
     },
     "mac": {
       "target": "dmg",
