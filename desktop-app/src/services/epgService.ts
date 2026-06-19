@@ -51,7 +51,12 @@ export class EPGService {
             const pieces = text.split('</programme>');
             let programCount = 0;
 
-            for (const piece of pieces) {
+            for (let pi = 0; pi < pieces.length; pi++) {
+                const piece = pieces[pi];
+                // Ceder el hilo cada 2000 programas para no congelar la interfaz
+                if (pi % 2000 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
                 const match = piece.match(/<programme([^>]+)>/);
                 if (!match) continue;
 

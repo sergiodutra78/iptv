@@ -9,6 +9,9 @@ import { MetadataService, type MediaMetadata } from '../services/metadataService
 
 const ITEMS_PER_PAGE = 40;
 
+// Placeholder embebido (no depende de internet) para imágenes que fallan
+const IMG_FALLBACK = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='200'%20height='300'%3E%3Crect%20width='200'%20height='300'%20fill='%2318181b'/%3E%3Ctext%20x='100'%20y='150'%20font-family='sans-serif'%20font-size='14'%20fill='%2371717a'%20text-anchor='middle'%3ESin%20imagen%3C/text%3E%3C/svg%3E";
+
 const shuffleArray = <T,>(array: T[]): T[] => {
     const newArr = [...array];
     for (let i = newArr.length - 1; i > 0; i--) {
@@ -36,7 +39,7 @@ const MovieListItem = ({ item, onClick }: { item: any, onClick: () => void }) =>
         >
             {(metadata?.posterUrl || item.logo) ? (
                 <div className="w-16 h-24 sm:w-20 sm:h-28 flex-shrink-0 bg-black rounded-lg overflow-hidden relative shadow-lg">
-                    <img src={metadata?.posterUrl || item.logo!} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/200x300?text=No+Image' }} />
+                    <img src={metadata?.posterUrl || item.logo!} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => { const t = e.target as HTMLImageElement; if (t.src !== IMG_FALLBACK) t.src = IMG_FALLBACK; }} />
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
                 </div>
             ) : (

@@ -63,3 +63,36 @@ export const getActivePlaylistUrl = (): string | null => {
 
     return null;
 };
+
+/**
+ * Devuelve la URL del EPG (XMLTV) activa, leyendo de localStorage o de IPTV_CONFIG.
+ * Usada para precargar la guía de programas en segundo plano al iniciar la app.
+ */
+export const getActiveEpgUrl = (): string | null => {
+    const stored = localStorage.getItem('iptv_config');
+    let configToUse: any = IPTV_CONFIG;
+    if (stored) {
+        try {
+            const parsed = JSON.parse(stored);
+            if (!parsed.xtreamCodes) parsed.xtreamCodes = IPTV_CONFIG.xtreamCodes;
+            configToUse = parsed;
+        } catch (e) { /* usa default */ }
+    }
+
+    // 1. EPG explícito
+    if (configToUse.epgUrl && configToUse.epgUrl !== "") {
+        return configToUse.epgUrl;
+    }
+
+    // 2. Derivar de Xtream Codes (xmltv.php)
+    const xc = configToUse.xtreamCodes || {};
+    const baseUrl = xc.baseUrl || IPTV_CONFIG.xtreamCodes.baseUrl;
+    const username = xc.username || IPTV_CONFIG.xtreamCodes.username;
+    const password = xc.password || IPTV_CONFIG.xtreamCodes.password;
+    if (baseUrl && baseUrl !== "TU_HOST_AQUI" && username && password) {
+        const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+        return `${cleanBase}/xmltv.php?username=${username}&password=${password}`;
+    }
+
+    return null;
+};

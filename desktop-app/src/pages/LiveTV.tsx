@@ -9,43 +9,24 @@ import { EPGService, type EPGData } from '../services/epgService';
 
 const ITEMS_PER_PAGE = 30;
 
-// Componente para renderizar la tarjeta o fila de canal con carga asíncrona de Short EPG
-const ChannelItem = ({ channel, epgData, configToUse, viewMode, onSelect, isSelected }: { 
-    channel: Channel, 
-    epgData: EPGData, 
-    configToUse: any, 
-    viewMode: 'grid' | 'list', 
+// Componente para renderizar la tarjeta o fila de canal
+const ChannelItem = ({ channel, epgData, viewMode, onSelect, isSelected }: {
+    channel: Channel,
+    epgData: EPGData,
+    viewMode: 'grid' | 'list',
     onSelect: (c: Channel) => void,
     isSelected: boolean
 }) => {
     const [localProgs, setLocalProgs] = useState<any[]>([]);
-    const [loadingShort, setLoadingShort] = useState(false);
+    const loadingShort = false;
 
+    // Solo usamos el EPG principal (ya cargado). NO hacemos una petición de red
+    // por cada tarjeta: con decenas de canales en pantalla saturaba las conexiones
+    // y frenaba la carga de los logos. El Short EPG se pide solo al reproducir.
     useEffect(() => {
         const progs = EPGService.getPrograms(channel, epgData);
-        if (progs && progs.length > 0) {
-            setLocalProgs(progs);
-            return;
-        }
-
-        // Intento de Fallback con Short EPG (Xtream Codes)
-        const match = channel.url.match(/\/live\/[^\/]+\/[^\/]+\/(\d+)\.(ts|m3u8)/i);
-        const streamId = match ? match[1] : null;
-
-        if (streamId && configToUse?.xtreamCodes?.baseUrl && configToUse?.xtreamCodes?.username) {
-            setLoadingShort(true);
-            EPGService.fetchShortEPG(
-                streamId, 
-                configToUse.xtreamCodes.baseUrl, 
-                configToUse.xtreamCodes.username, 
-                configToUse.xtreamCodes.password
-            ).then(shorts => {
-                if (shorts && shorts.length > 0) {
-                    setLocalProgs(shorts);
-                }
-            }).finally(() => setLoadingShort(false));
-        }
-    }, [channel, epgData, configToUse]);
+        setLocalProgs(progs && progs.length > 0 ? progs : []);
+    }, [channel, epgData]);
 
     const prog = EPGService.getCurrentProgram(localProgs);
     const progress = EPGService.getProgramProgress(prog);
@@ -500,11 +481,10 @@ const LiveTV = () => {
                             {viewMode === 'grid' ? (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
                                     {displayChannels.map(channel => (
-                                        <ChannelItem 
+                                        <ChannelItem
                                             key={channel.id + channel.url}
                                             channel={channel}
                                             epgData={epgData}
-                                            configToUse={configToUse}
                                             viewMode="grid"
                                             onSelect={setSelectedChannel}
                                             isSelected={selectedChannel ? (selectedChannel as any).url === channel.url : false}
@@ -514,11 +494,10 @@ const LiveTV = () => {
                             ) : (
                                 <div className="flex flex-col gap-2">
                                     {displayChannels.map(channel => (
-                                        <ChannelItem 
+                                        <ChannelItem
                                             key={channel.id + channel.url}
                                             channel={channel}
                                             epgData={epgData}
-                                            configToUse={configToUse}
                                             viewMode="list"
                                             onSelect={setSelectedChannel}
                                             isSelected={selectedChannel ? (selectedChannel as any).url === channel.url : false}

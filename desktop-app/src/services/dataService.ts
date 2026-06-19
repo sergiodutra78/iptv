@@ -33,13 +33,15 @@ export class DataService {
                         await new Promise(resolve => setTimeout(resolve, 100));
 
                         const data = JSON.parse(cached);
-                        if (onProgress) onProgress(40);
+                        if (onProgress) onProgress(30);
 
                         await new Promise(resolve => setTimeout(resolve, 100));
                         this.processData(data);
 
-                        // Precarga de imágenes en segundo plano (no debe bloquear el arranque)
-                        this.preloadTopImages(data.channels);
+                        // Precarga de imágenes (la barra avanza 30→100% mientras descarga)
+                        await this.preloadTopImages(data.channels, (p) => {
+                            if (onProgress) onProgress(30 + Math.floor(p * 0.7));
+                        });
 
                         if (onProgress) onProgress(100);
                         return this.playlistData!;
@@ -51,13 +53,16 @@ export class DataService {
         }
 
         try {
+            // Descarga + parseo del M3U: avanza la barra 0→30%
             const data = await M3UParser.fetchAndParse(url, (p) => {
-                if (onProgress) onProgress(p);
+                if (onProgress) onProgress(Math.floor(p * 0.3));
             });
             this.processData(data);
 
-            // Precarga de imágenes en segundo plano (no debe bloquear el arranque)
-            this.preloadTopImages(data.channels);
+            // Precarga de imágenes: avanza la barra 30→100%
+            await this.preloadTopImages(data.channels, (p) => {
+                if (onProgress) onProgress(30 + Math.floor(p * 0.7));
+            });
             if (onProgress) onProgress(100);
 
             setTimeout(() => {
@@ -76,77 +81,67 @@ export class DataService {
         }
     }
 
-    private static async preloadTopImages(channels: Channel[], onProgress?: (percent: number) => void) {
-        if (!('caches' in window)) return;
+    /**
+     * Precarga las imágenes principales para que aparezcan al instante al abrir la app.
+     *
+     * Usa `new Image()` (NO la Cache API, que se cuelga en Electron empaquetado vía
+     * file://). Chromium guarda cada imagen en su caché de disco automáticamente.
+     * Cada imagen tiene un timeout para que una URL muerta no trabe la barra de carga.
+     */
+    private static preloadTopImages(channels: Channel[], onProgress?: (percent: number) => void): Promise<void> {
+        return new Promise((resolve) => {
+            const pick = (type: Channel['type'], limit: number) =>
+                channels.filter(c => c.type === type && c.logo).map(c => c.logo!).slice(0, limit);
 
-        try {
-            const cache = await caches.open('kinetiq-images');
-            const live = channels.filter(c => c.type === 'live' && c.logo).map(c => c.logo!);
-            const others = channels.filter(c => c.type !== 'live' && c.logo).map(c => c.logo!);
-            const uniqueLogos = Array.from(new Set([...live.slice(0, 100), ...others.slice(0, 50)]));
+            // Scope "medio": inicio + películas + series destacadas + algunos canales
+            const uniqueLogos = Array.from(new Set([
+                ...pick('movie', 200),
+                ...pick('series', 100),
+                ...pick('live', 80),
+            ]));
+
+            const total = uniqueLogos.length;
+            if (total === 0) {
+                if (onProgress) onProgress(100);
+                resolve();
+                return;
+            }
 
             let loaded = 0;
-            const total = uniqueLogos.length;
-            const CONCURRENCY = 10;
             let i = 0;
+            const CONCURRENCY = 16;
+            const PER_IMAGE_TIMEOUT = 4000;
 
-            const worker = async () => {
-                while (i < total) {
-                    const url = uniqueLogos[i++];
-                    let cleanSrc = url;
-                    if (cleanSrc.startsWith('//')) cleanSrc = 'https:' + cleanSrc;
+            const loadNext = () => {
+                if (i >= total) return;
+                const raw = uniqueLogos[i++];
+                let src = raw;
+                if (src.startsWith('//')) src = 'https:' + src;
 
-                    try {
-                        const has = await cache.match(cleanSrc);
-                        if (!has) {
-                            const controller = new AbortController();
-                            const timeoutId = setTimeout(() => controller.abort(), 4000);
-                            const res = await fetch(cleanSrc, { signal: controller.signal });
-                            clearTimeout(timeoutId);
-                            if (res.ok) await cache.put(cleanSrc, res);
-                        }
-                    } catch (e) { }
+                const img = new Image();
+                let settled = false;
+                const finish = () => {
+                    if (settled) return;
+                    settled = true;
                     loaded++;
                     if (onProgress) onProgress(Math.floor((loaded / total) * 100));
-                }
+                    if (loaded >= total) {
+                        resolve();
+                    } else {
+                        loadNext();
+                    }
+                };
+
+                const timer = setTimeout(finish, PER_IMAGE_TIMEOUT);
+                img.onload = () => { clearTimeout(timer); finish(); };
+                img.onerror = () => { clearTimeout(timer); finish(); };
+                img.src = src;
             };
 
-            const workers = Array(Math.min(CONCURRENCY, total)).fill(0).map(worker);
-            await Promise.all(workers);
-            const allLogos = Array.from(new Set(channels.map(c => c.logo).filter(l => !!l))) as string[];
-            this.preloadRestInBackground(allLogos, uniqueLogos);
-        } catch (e) {
-            console.warn("Error preloading images", e);
-        }
-    }
-
-    private static async preloadRestInBackground(allLogos: string[], skipLogos: string[]) {
-        if (!('caches' in window)) return;
-        setTimeout(async () => {
-            try {
-                const cache = await caches.open('kinetiq-images');
-                const skipSet = new Set(skipLogos);
-                const toLoad = allLogos.filter(l => !skipSet.has(l));
-
-                for (let i = 0; i < toLoad.length; i++) {
-                    const url = toLoad[i];
-                    let cleanSrc = url;
-                    if (cleanSrc.startsWith('//')) cleanSrc = 'https:' + cleanSrc;
-
-                    try {
-                        const has = await cache.match(cleanSrc);
-                        if (!has) {
-                            const controller = new AbortController();
-                            const timeoutId = setTimeout(() => controller.abort(), 4000);
-                            const res = await fetch(cleanSrc, { signal: controller.signal });
-                            clearTimeout(timeoutId);
-                            if (res.ok) await cache.put(cleanSrc, res);
-                        }
-                    } catch (e) { }
-                    await new Promise(r => setTimeout(r, 100));
-                }
-            } catch (e) { }
-        }, 3000);
+            for (let k = 0; k < Math.min(CONCURRENCY, total); k++) {
+                loadNext();
+            }
+        });
     }
 
     private static processData(data: PlaylistData) {

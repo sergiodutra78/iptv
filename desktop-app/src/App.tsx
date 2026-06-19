@@ -5,12 +5,14 @@ import LiveTV from './pages/LiveTV';
 import Settings from './pages/Settings';
 import Movies from './pages/Movies';
 import Series from './pages/Series';
+import Favorites from './pages/Favorites';
 import MovieCard from './components/MovieCard';
 import CachedImage from './components/CachedImage';
 import { type Channel } from './services/m3uParser';
-import { getActivePlaylistUrl } from './config/iptv';
+import { getActivePlaylistUrl, getActiveEpgUrl } from './config/iptv';
 import VideoPlayer from './components/VideoPlayer';
 import { DataService } from './services/dataService';
+import { EPGService } from './services/epgService';
 import HorizontalScroll from './components/HorizontalScroll';
 
 // Custom TitleBar for Windows Electron
@@ -246,6 +248,7 @@ const Inicio = () => {
   const [heroMovie, setHeroMovie] = useState<Channel | null>(null);
   const [recentMovies, setRecentMovies] = useState<Channel[]>([]);
   const [recentSeries, setRecentSeries] = useState<Channel[]>([]);
+  const [topLive, setTopLive] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<Channel | null>(null);
 
@@ -269,6 +272,11 @@ const Inicio = () => {
         const groupedSeriesList = DataService.getGroupedSeriesSync();
         const recentGroups = [...groupedSeriesList].reverse().slice(0, 50);
         setRecentSeries(recentGroups as any);
+
+        // Canales en vivo reales para "Lo más visto en TV"
+        const live = DataService.getLiveSync();
+        const withLogo = live.filter(c => c.logo);
+        setTopLive((withLogo.length >= 4 ? withLogo : live).slice(0, 8));
 
         // Logic for Hero Recommendation
         if (allRecentMovies.length > 0) {
@@ -380,7 +388,10 @@ const Inicio = () => {
             >
               <Play size={20} fill="currentColor" /> Reproducir
             </button>
-            <button className="px-8 py-4 bg-zinc-800/80 backdrop-blur-md text-white font-black rounded-xl hover:bg-zinc-700 transition-all flex items-center gap-3 uppercase tracking-wider">
+            <button
+              onClick={() => navigate('/movies')}
+              className="px-8 py-4 bg-zinc-800/80 backdrop-blur-md text-white font-black rounded-xl hover:bg-zinc-700 transition-all flex items-center gap-3 uppercase tracking-wider"
+            >
               <Info size={20} /> Más Info
             </button>
           </div>
@@ -438,30 +449,42 @@ const Inicio = () => {
       </section>
 
       {/* Live TV Section */}
-      <section className="px-10 mt-16 space-y-8">
-        <h2 className="text-2xl font-black italic tracking-tighter flex items-center gap-3">
-          <span className="w-1.5 h-8 bg-primary rounded-full"></span>
-          LO MÁS VISTO EN TV
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="aspect-video bg-zinc-900/40 rounded-2xl overflow-hidden relative group cursor-pointer border border-zinc-900/50 hover:border-primary/50 transition-all duration-500">
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent flex flex-col justify-end p-6 z-10">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
-                  <span className="text-[10px] text-primary font-black uppercase tracking-[0.1em]">Deportes • En Vivo</span>
+      {topLive.length > 0 && (
+        <section className="px-10 mt-16 space-y-8">
+          <h2 className="text-2xl font-black italic tracking-tighter flex items-center gap-3">
+            <span className="w-1.5 h-8 bg-primary rounded-full"></span>
+            CANALES EN VIVO
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {topLive.map(channel => (
+              <div
+                key={channel.id + channel.url}
+                onClick={() => setSelectedItem(channel)}
+                className="aspect-video bg-zinc-900/40 rounded-2xl overflow-hidden relative group cursor-pointer border border-zinc-900/50 hover:border-primary/50 transition-all duration-500"
+              >
+                {channel.logo && (
+                  <div
+                    className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity blur-sm scale-110"
+                    style={{ backgroundImage: `url(${channel.logo})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent flex flex-col justify-end p-6 z-10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
+                    <span className="text-[10px] text-primary font-black uppercase tracking-[0.1em] truncate">{channel.group} • En Vivo</span>
+                  </div>
+                  <h3 className="font-black text-xl italic tracking-tight truncate">{channel.name}</h3>
                 </div>
-                <h3 className="font-black text-xl italic tracking-tight">CANAL {i} PREMIUM</h3>
-              </div>
-              <div className="absolute top-6 right-6 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="p-3 bg-primary rounded-full shadow-2xl">
-                  <Play size={18} fill="white" className="ml-1" />
+                <div className="absolute top-6 right-6 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="p-3 bg-primary rounded-full shadow-2xl">
+                    <Play size={18} fill="white" className="ml-1" />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };
@@ -472,10 +495,11 @@ function App() {
 
   useEffect(() => {
     // Salvavida: si por cualquier motivo la carga se cuelga, entrar a la app de todos modos.
+    // El preload de imágenes (scope medio) puede tardar varios segundos.
     const safety = setTimeout(() => {
       setProgress(100);
       setIsInitialLoading(false);
-    }, 20000);
+    }, 60000);
 
     const initApp = async () => {
       // Usamos el sistema de caché inteligente de DataService:
@@ -484,10 +508,19 @@ function App() {
 
       const url = getActivePlaylistUrl() || "/uruguay.m3u";
       try {
-        // Carga inicial y cacheo
-        await DataService.getChannels(url, (p) => setProgress(Math.min(p, 95)));
+        // Carga inicial y cacheo (descarga lista + precarga imágenes con barra)
+        await DataService.getChannels(url, (p) => setProgress(Math.min(p, 99)));
         clearTimeout(safety);
         setProgress(100);
+
+        // Precarga del EPG (guía) en segundo plano: queda listo y cacheado
+        // para cuando el usuario entre a "TV en Vivo". Usamos la misma prioridad
+        // de URL que LiveTV (url-tvg del M3U primero) para que el caché coincida.
+        const epgUrl = DataService.getAllSync()?.epgUrl || getActiveEpgUrl();
+        if (epgUrl) {
+          EPGService.fetchEPG(epgUrl).catch(() => { /* silencioso */ });
+        }
+
         setTimeout(() => setIsInitialLoading(false), 500);
       } catch (err) {
         console.error("Failed to initialize app data", err);
@@ -517,6 +550,7 @@ function App() {
                 <Route path="/tv" element={<LiveTV />} />
                 <Route path="/movies" element={<Movies />} />
                 <Route path="/series" element={<Series />} />
+                <Route path="/favorites" element={<Favorites />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<Inicio />} />
               </Routes>

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Info, Star } from 'lucide-react';
+import { Play, Heart, Star } from 'lucide-react';
 import CachedImage from './CachedImage';
 import { type Channel } from '../services/m3uParser';
 import { MetadataService, type MediaMetadata } from '../services/metadataService';
+import { FavoritesService } from '../services/FavoritesService';
 
 interface MovieCardProps {
     movie: Channel;
@@ -12,7 +13,13 @@ interface MovieCardProps {
 const MovieCard = ({ movie, onClick }: MovieCardProps) => {
     const [metadata, setMetadata] = useState<MediaMetadata | null>(null);
     const [isInView, setIsInView] = useState(false);
+    const [isFav, setIsFav] = useState(() => FavoritesService.isFavorite(movie.url));
     const cardRef = useRef<HTMLDivElement>(null);
+
+    const toggleFavorite = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsFav(FavoritesService.toggle(movie));
+    };
 
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -86,6 +93,15 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
                     </div>
                 )}
 
+                {/* Botón de favorito (esquina superior) */}
+                <button
+                    onClick={toggleFavorite}
+                    title={isFav ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+                    className={`absolute top-2 right-2 z-20 p-2 rounded-full backdrop-blur-md border transition-all ${isFav ? 'bg-primary/90 border-primary text-white' : 'bg-black/40 border-white/10 text-white/80 opacity-0 group-hover:opacity-100 hover:bg-black/60'}`}
+                >
+                    <Heart size={14} fill={isFav ? 'currentColor' : 'none'} />
+                </button>
+
                 {/* Overlay with Titulo and buttons */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-100 group-hover:via-black/40 group-hover:from-black transition-all flex flex-col justify-end p-3">
                     <h4 className="text-[11px] font-black text-white mb-2 leading-tight drop-shadow-lg">
@@ -96,8 +112,11 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
                         <button className="flex-1 bg-white text-black py-1.5 rounded text-[10px] font-black flex items-center justify-center gap-1 hover:bg-zinc-200 transition-colors">
                             <Play size={10} fill="black" /> Ver
                         </button>
-                        <button className="p-1.5 bg-zinc-800/80 text-white rounded hover:bg-zinc-700 transition-colors">
-                            <Info size={10} />
+                        <button
+                            onClick={toggleFavorite}
+                            className={`p-1.5 rounded transition-colors ${isFav ? 'bg-primary text-white' : 'bg-zinc-800/80 text-white hover:bg-zinc-700'}`}
+                        >
+                            <Heart size={10} fill={isFav ? 'currentColor' : 'none'} />
                         </button>
                     </div>
                 </div>
