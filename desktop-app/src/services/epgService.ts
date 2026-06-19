@@ -188,6 +188,10 @@ export class EPGService {
         return keys.length > 0 ? this.cache[keys[0]] : null;
     }
 
+    static getShortCachedPrograms(streamId: string): EPGProgram[] {
+        return this.shortEpgCache[streamId] ?? [];
+    }
+
     static async fetchShortEPG(streamId: string, baseUrl: string, username: string, password: string): Promise<EPGProgram[]> {
         if (this.shortEpgCache[streamId]) return this.shortEpgCache[streamId];
 
@@ -267,11 +271,6 @@ export class EPGService {
 
             // FIXED: Usar setUTCMinutes
             date.setUTCMinutes(date.getUTCMinutes() - totalOffsetMin);
-        }
-        
-        // Aplicar ajuste horario si es necesario
-        if (EPG_TIME_SHIFT_HOURS !== 0) {
-            date.setHours(date.getHours() + EPG_TIME_SHIFT_HOURS);
         }
         
         return date;

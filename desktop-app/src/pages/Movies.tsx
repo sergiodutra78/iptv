@@ -3,9 +3,18 @@ import { type Channel } from '../services/m3uParser';
 import { getActivePlaylistUrl } from '../config/iptv';
 import MovieCard from '../components/MovieCard';
 import VideoPlayer from '../components/VideoPlayer';
-import { Search, Film, Loader2, PlayCircle, ChevronLeft, Star, LayoutGrid, List } from 'lucide-react';
+import { Search, Film, Loader2, PlayCircle, ChevronLeft, Star, LayoutGrid, List, RotateCcw } from 'lucide-react';
 import { DataService } from '../services/dataService';
 import { MetadataService, type MediaMetadata } from '../services/metadataService';
+import { WatchProgressService } from '../services/WatchProgressService';
+
+const formatProgressTime = (seconds: number): string => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
 
 const ITEMS_PER_PAGE = 40;
 
@@ -244,14 +253,42 @@ const Movies = () => {
                             )}
 
                             {/* Play Button */}
-                            <div className="mt-6">
-                                <button 
-                                    onClick={() => setIsPlaying(true)}
-                                    className="flex items-center gap-3 bg-primary hover:bg-primary/90 text-white font-black py-3 px-8 rounded-full shadow-lg shadow-primary/20 hover:scale-105 transition-transform duration-200"
-                                >
-                                    <PlayCircle size={24} fill="white" />
-                                    <span>REPRODUCIR</span>
-                                </button>
+                            <div className="mt-6 flex items-center gap-4 flex-wrap">
+                                {(() => {
+                                    const saved = selectedMovie ? WatchProgressService.get(selectedMovie.url) : null;
+                                    if (saved && saved.position > 30) {
+                                        return (
+                                            <>
+                                                <button
+                                                    onClick={() => setIsPlaying(true)}
+                                                    className="flex items-center gap-3 bg-primary hover:bg-primary/90 text-white font-black py-3 px-8 rounded-full shadow-lg shadow-primary/20 hover:scale-105 transition-transform duration-200"
+                                                >
+                                                    <PlayCircle size={24} fill="white" />
+                                                    <span>CONTINUAR · {formatProgressTime(saved.position)}</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        if (selectedMovie) WatchProgressService.clear(selectedMovie.url);
+                                                        setIsPlaying(true);
+                                                    }}
+                                                    className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold py-3 px-4 rounded-full border border-zinc-700 hover:border-zinc-500 transition-all text-sm"
+                                                >
+                                                    <RotateCcw size={16} />
+                                                    <span>Desde el inicio</span>
+                                                </button>
+                                            </>
+                                        );
+                                    }
+                                    return (
+                                        <button
+                                            onClick={() => setIsPlaying(true)}
+                                            className="flex items-center gap-3 bg-primary hover:bg-primary/90 text-white font-black py-3 px-8 rounded-full shadow-lg shadow-primary/20 hover:scale-105 transition-transform duration-200"
+                                        >
+                                            <PlayCircle size={24} fill="white" />
+                                            <span>REPRODUCIR</span>
+                                        </button>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>

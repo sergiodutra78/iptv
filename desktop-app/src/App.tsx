@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Tv, Film, PlayCircle, Heart, Settings as SettingsIcon, Search, User, Play, Info, Bell, X, Minus, Square } from 'lucide-react';
+import { Home, Tv, Film, PlayCircle, Heart, Settings as SettingsIcon, User, Play, Info, Bell, X, Minus, Square } from 'lucide-react';
 import LiveTV from './pages/LiveTV';
 import Settings from './pages/Settings';
 import Movies from './pages/Movies';
@@ -182,7 +182,6 @@ const Sidebar = () => {
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   useEffect(() => {
     const mainContainer = document.querySelector('.main-content-area');
@@ -194,25 +193,7 @@ const Header = () => {
   }, []);
 
   return (
-    <header className={`h-20 flex items-center justify-between px-10 sticky top-0 z-40 transition-all duration-500 ${scrolled ? 'bg-black/95 backdrop-blur-xl border-b border-zinc-900 shadow-2xl' : 'bg-gradient-to-b from-black/80 to-transparent'}`}>
-      <div className="flex-1 max-w-2xl">
-        <div className={`relative group flex items-center transition-all duration-500 ${isSearchFocused ? 'w-full' : 'w-72'}`}>
-          <Search className={`absolute left-4 z-10 transition-colors duration-300 ${isSearchFocused ? 'text-primary' : 'text-zinc-500'}`} size={18} />
-          <input
-            type="text"
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
-            placeholder="Películas, series, canales..."
-            className={`w-full bg-zinc-900/40 hover:bg-zinc-900/60 h-11 pl-12 pr-6 rounded-full border border-zinc-800/50 focus:border-primary/50 focus:bg-zinc-900/80 focus:outline-none transition-all placeholder:text-zinc-600 text-sm font-bold tracking-tight shadow-inner`}
-          />
-          {isSearchFocused && (
-            <div className="absolute right-4 text-[10px] font-black text-zinc-600 uppercase tracking-widest animate-pulse">
-              Presiona Enter
-            </div>
-          )}
-        </div>
-      </div>
-
+    <header className={`h-20 flex items-center justify-end px-10 sticky top-0 z-40 transition-all duration-500 ${scrolled ? 'bg-black/95 backdrop-blur-xl border-b border-zinc-900 shadow-2xl' : 'bg-gradient-to-b from-black/80 to-transparent'}`}>
       <div className="flex items-center gap-8">
         <div className="hidden md:flex items-center gap-6 text-zinc-400">
           <button className="hover:text-white transition-all transform hover:scale-110 relative group">

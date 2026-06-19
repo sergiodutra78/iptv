@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, List, RotateCcw, RotateCw, Calendar } from 'lucide-react';
+import { WatchProgressService } from '../services/WatchProgressService';
 
 interface VideoPlayerProps {
     url: string;
@@ -28,8 +29,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
     const [errorDetails, setErrorDetails] = useState<string>("");
     const [currentPlayingUrl, setCurrentPlayingUrl] = useState<string>("");
     const controlsTimeout = useRef<any>(null);
+    const lastProgressSave = useRef<number>(0);
 
     const isLive = type === 'live';
+    const isMovie = type === 'movie';
 
     useEffect(() => {
         if (!videoRef.current) return;
@@ -83,6 +86,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
                     videoRef.current.volume = volume;
                     videoRef.current.muted = isMuted;
                 }
+                if (isMovie) {
+                    const saved = WatchProgressService.get(url);
+                    if (saved && saved.position > 30) {
+                        setTimeout(() => {
+                            if (videoRef.current) videoRef.current.currentTime = saved.position;
+                        }, 300);
+                    }
+                }
             });
 
             hls.on(Hls.Events.ERROR, (_, data) => {
@@ -99,13 +110,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
         } else {
             // Reproducción directa para MP4, MKV, etc.
             videoRef.current.src = streamUrl;
+            videoRef.current.volume = volume;
+            videoRef.current.muted = isMuted;
+            if (isMovie) {
+                const saved = WatchProgressService.get(url);
+                if (saved && saved.position > 30) {
+                    videoRef.current.addEventListener('loadedmetadata', () => {
+                        if (videoRef.current) videoRef.current.currentTime = saved.position;
+                    }, { once: true });
+                }
+            }
             videoRef.current.play().catch(e => {
                 console.error("Manual play error", e);
                 setHasError(true);
                 setErrorDetails(`Manual Play Error: ${e.message || "Unknown"}`);
             });
-            videoRef.current.volume = volume;
-            videoRef.current.muted = isMuted;
         }
     }, [url]);
 
@@ -113,7 +132,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
         const video = videoRef.current;
         if (!video) return;
 
-        const handleTimeUpdate = () => setCurrentTime(video.currentTime);
+        const handleTimeUpdate = () => {
+            const t = video.currentTime;
+            setCurrentTime(t);
+            if (isMovie) {
+                const now = Date.now();
+                if (now - lastProgressSave.current > 5000) {
+                    lastProgressSave.current = now;
+                    WatchProgressService.save(url, t, video.duration);
+                }
+            }
+        };
         const handleDurationChange = () => setDuration(video.duration);
 
         video.addEventListener('timeupdate', handleTimeUpdate);

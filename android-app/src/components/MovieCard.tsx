@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Info, Star } from 'lucide-react';
+import { Play, Heart, Star } from 'lucide-react';
 import CachedImage from './CachedImage';
 import { type Channel } from '../services/m3uParser';
 import { MetadataService, type MediaMetadata } from '../services/metadataService';
+import { FavoritesService } from '../services/FavoritesService';
+import { WatchProgressService } from '../services/WatchProgressService';
 
 interface MovieCardProps {
     movie: Channel;
@@ -12,7 +14,14 @@ interface MovieCardProps {
 const MovieCard = ({ movie, onClick }: MovieCardProps) => {
     const [metadata, setMetadata] = useState<MediaMetadata | null>(null);
     const [isInView, setIsInView] = useState(false);
+    const [isFav, setIsFav] = useState(() => FavoritesService.isFavorite(movie.url));
+    const [watchProgress] = useState(() => WatchProgressService.getProgress(movie.url));
     const cardRef = useRef<HTMLDivElement>(null);
+
+    const toggleFavorite = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsFav(FavoritesService.toggle(movie));
+    };
 
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -25,10 +34,7 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
             { rootMargin: '100px' }
         );
 
-        if (cardRef.current) {
-            observer.observe(cardRef.current);
-        }
-
+        if (cardRef.current) observer.observe(cardRef.current);
         return () => observer.disconnect();
     }, []);
 
@@ -44,14 +50,10 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
             } else if (movie.type === 'movie') {
                 data = await MetadataService.getMovieMetadata(movie.name, movie);
             }
-
-            if (isMounted && data) {
-                setMetadata(data);
-            }
+            if (isMounted && data) setMetadata(data);
         };
 
         fetchMeta();
-
         return () => { isMounted = false; };
     }, [movie.name, movie.type, isInView]);
 
@@ -64,7 +66,6 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
             <div className="aspect-[2/3] bg-zinc-900 rounded-md overflow-hidden border border-zinc-800 transition-all group-hover:border-primary/50">
                 {(metadata?.posterUrl || movie.logo) && isInView ? (
                     <div className="absolute inset-0 flex items-center justify-center p-2">
-                        {/* Difuminado de fondo para rellenar huecos si la imagen es pequeña o tiene otro aspect ratio */}
                         <div
                             className="absolute inset-0 opacity-20 blur-xl scale-110"
                             style={{
@@ -86,7 +87,23 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
                     </div>
                 )}
 
-                {/* Overlay with Titulo and buttons */}
+                {/* Botón de favorito */}
+                <button
+                    onClick={toggleFavorite}
+                    title={isFav ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+                    className={`absolute top-2 right-2 z-20 p-2 rounded-full backdrop-blur-md border transition-all ${isFav ? 'bg-primary/90 border-primary text-white' : 'bg-black/40 border-white/10 text-white/80 opacity-0 group-hover:opacity-100 hover:bg-black/60'}`}
+                >
+                    <Heart size={14} fill={isFav ? 'currentColor' : 'none'} />
+                </button>
+
+                {/* Barra de progreso (estilo Netflix) */}
+                {watchProgress > 0 && (
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-zinc-700/60 z-30">
+                        <div className="h-full bg-primary rounded-r-full" style={{ width: `${watchProgress * 100}%` }} />
+                    </div>
+                )}
+
+                {/* Overlay con titulo y botones */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-100 group-hover:via-black/40 group-hover:from-black transition-all flex flex-col justify-end p-3">
                     <h4 className="text-[11px] font-black text-white mb-2 leading-tight drop-shadow-lg">
                         {movie.name}
@@ -96,8 +113,11 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
                         <button className="flex-1 bg-white text-black py-1.5 rounded text-[10px] font-black flex items-center justify-center gap-1 hover:bg-zinc-200 transition-colors">
                             <Play size={10} fill="black" /> Ver
                         </button>
-                        <button className="p-1.5 bg-zinc-800/80 text-white rounded hover:bg-zinc-700 transition-colors">
-                            <Info size={10} />
+                        <button
+                            onClick={toggleFavorite}
+                            className={`p-1.5 rounded transition-colors ${isFav ? 'bg-primary text-white' : 'bg-zinc-800/80 text-white hover:bg-zinc-700'}`}
+                        >
+                            <Heart size={10} fill={isFav ? 'currentColor' : 'none'} />
                         </button>
                     </div>
                 </div>
@@ -126,4 +146,3 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
 };
 
 export default MovieCard;
-

@@ -303,10 +303,24 @@ const LiveTV = () => {
         }
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
-            result = result.filter(c => c.name.toLowerCase().includes(query));
+            result = result.filter(c => {
+                if (c.name.toLowerCase().includes(query)) return true;
+                // Buscar también en el título del programa actual (EPG cacheado)
+                const xmltvProgs = EPGService.getPrograms(c, epgData);
+                const currentProg = EPGService.getCurrentProgram(xmltvProgs);
+                if (currentProg?.title.toLowerCase().includes(query)) return true;
+                // Short EPG cache (canales sin XMLTV)
+                const streamMatch = c.url.match(/\/live\/[^/]+\/[^/]+\/(\d+)\.(ts|m3u8)/i);
+                if (streamMatch) {
+                    const shortProgs = EPGService.getShortCachedPrograms(streamMatch[1]);
+                    const shortCurrent = EPGService.getCurrentProgram(shortProgs);
+                    if (shortCurrent?.title.toLowerCase().includes(query)) return true;
+                }
+                return false;
+            });
         }
         return result;
-    }, [selectedCategory, searchQuery, channels]);
+    }, [selectedCategory, searchQuery, channels, epgData]);
 
     const displayChannels = useMemo(() => {
         return filteredChannels.slice(0, visibleCount);

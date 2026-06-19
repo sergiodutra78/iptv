@@ -69,6 +69,39 @@ export class MetadataService {
     }
 
     /**
+     * Busca sinopsis en Wikipedia (español, luego inglés como fallback).
+     */
+    private static async fetchWikipediaDescription(title: string): Promise<string | undefined> {
+        const langs = ['es', 'en'];
+        const queries = [`${title} película`, title];
+        for (const lang of langs) {
+            for (const q of queries) {
+                try {
+                    const searchRes = await fetch(
+                        `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=3&format=json&origin=*`
+                    );
+                    if (!searchRes.ok) continue;
+                    const searchData = await searchRes.json();
+                    const pages = searchData.query?.search;
+                    if (!pages?.length) continue;
+
+                    const pageId = pages[0].pageid;
+                    const extractRes = await fetch(
+                        `https://${lang}.wikipedia.org/w/api.php?action=query&pageids=${pageId}&prop=extracts&exintro=true&explaintext=true&exsentences=5&format=json&origin=*`
+                    );
+                    if (!extractRes.ok) continue;
+                    const extractData = await extractRes.json();
+                    const extract: string = extractData.query?.pages?.[pageId]?.extract ?? '';
+                    if (extract.length > 100) {
+                        return extract.replace(/\s*\(.*?\)\s*(?=es|is)/g, '').trim();
+                    }
+                } catch {}
+            }
+        }
+        return undefined;
+    }
+
+    /**
      * Busca información de una Película usando Proveedor (Xtream) o YTS API como Fallback
      */
     static async getMovieMetadata(title: string, movie?: any): Promise<MediaMetadata | null> {
@@ -111,17 +144,9 @@ export class MetadataService {
                                     status: info.released_date || undefined
                                 };
 
-                                // --- ENRIQUECIMIENTO EXTRA (SINOPSIS EN ESPAÑOL) SI FALTA ---
+                                // --- SINOPSIS DESDE WIKIPEDIA SI FALTA ---
                                 if (!result.description || result.description.trim() === "") {
-                                    try {
-                                        const ddgRes = await fetch(`https://api.duckduckgo.com/?q=pelicula%20${encodeURIComponent(cleanTitle)}&format=json`);
-                                        if (ddgRes.ok) {
-                                            const ddgData = await ddgRes.json();
-                                            if (ddgData.AbstractText && ddgData.AbstractText.length > 20) {
-                                                result.description = ddgData.AbstractText;
-                                            }
-                                        }
-                                    } catch (e) {}
+                                    result.description = await this.fetchWikipediaDescription(cleanTitle);
                                 }
                                 
                                 console.log(`[Metadata] MovieMatch: ${cleanTitle} | Fuente: Provider (Xtream) | Poster: ${result.posterUrl ? "SÍ" : "NO"} | Desc: ${result.description ? "SÍ" : "NO"}`);
@@ -151,17 +176,9 @@ export class MetadataService {
                     posterUrl: item.medium_cover_image || undefined
                 };
 
-                // --- SINOPSIS EN ESPAÑOL DUCKDUCKGOFallback ---
+                // --- SINOPSIS DESDE WIKIPEDIA SI FALTA O ES MUY CORTA ---
                 if (!result.description || result.description.length < 50) {
-                    try {
-                        const ddgRes = await fetch(`https://api.duckduckgo.com/?q=pelicula%20${encodeURIComponent(cleanTitle)}&format=json`);
-                        if (ddgRes.ok) {
-                            const ddgData = await ddgRes.json();
-                            if (ddgData.AbstractText && ddgData.AbstractText.length > 20) {
-                                result.description = ddgData.AbstractText;
-                            }
-                        }
-                    } catch (e) {}
+                    result.description = await this.fetchWikipediaDescription(cleanTitle);
                 }
 
                 console.log(`[Metadata] MovieMatch: ${cleanTitle} | Fuente: YTS (Fallback) | Poster: ${result.posterUrl ? "SÍ" : "NO"} | Desc: ${result.description ? "SÍ" : "NO"}`);
