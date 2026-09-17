@@ -50,12 +50,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
         if (plugins && plugins.streamingMedia) {
             console.log("Using Native Player for", streamUrl);
             const options = {
-                successCallback: () => console.log('Video played'),
-                errorCallback: (e: any) => {
-                    console.error('Native Player Error', e);
-                    setHasError(true);
-                    setErrorDetails(`Native Player Error: ${e || 'Error desconocido'}`);
-                },
+                successCallback: () => { console.log('Native player closed'); onClose?.(); },
+                errorCallback: (e: any) => { console.error('Native Player Error', e); onClose?.(); },
+                orientation: 'landscape',
+                shouldAutoClose: true,
                 shouldAutoPlay: true,
                 controls: true
             };
