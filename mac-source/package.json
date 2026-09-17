@@ -20,10 +20,13 @@
     "directories": {
       "output": "dist-electron"
     },
+    "icon": "public/icon.png",
     "win": {
+      "icon": "public/icon.png",
       "target": "dir"
     },
     "mac": {
+      "icon": "public/icon.png",
       "target": "dmg",
       "category": "public.app-category.entertainment"
     },

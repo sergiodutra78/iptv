@@ -132,9 +132,17 @@ export class M3UParser {
 
     static async fetchAndParse(url: string, onProgress?: (percent: number) => void): Promise<PlaylistData> {
         try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Error al descargar la lista M3U');
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 45000);
+            let response: Response;
+            try {
+                response = await fetch(url, { signal: controller.signal });
+            } finally {
+                clearTimeout(timeout);
+            }
+            if (!response.ok) throw new Error(`HTTP ${response.status}: Error al descargar la lista M3U`);
             const content = await response.text();
+            if (!content || content.trim().length === 0) throw new Error('La lista M3U está vacía');
             return this.parse(content, onProgress);
         } catch (error) {
             console.error('M3U Parsing error:', error);

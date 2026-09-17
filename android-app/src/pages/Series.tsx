@@ -235,30 +235,30 @@ const Series = () => {
     return (
         <div className="flex flex-col h-full">
             {/* Header con búsqueda */}
-            <div className="p-5 pb-3">
-                <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="p-5 pb-3 landscape:p-2 landscape:pb-1.5">
+                <div className="flex items-center justify-between gap-3 mb-4 landscape:mb-1.5">
                     <div>
-                        <h1 className="text-3xl font-black italic tracking-tighter uppercase">SERIES</h1>
-                        <p className="text-zinc-500 text-sm">Series organizadas por temporadas.</p>
+                        <h1 className="text-3xl landscape:text-lg font-black italic tracking-tighter uppercase">SERIES</h1>
+                        <p className="text-zinc-500 text-sm landscape:hidden">Series organizadas por temporadas.</p>
                     </div>
                     <div className="flex gap-1 bg-zinc-900 p-1 rounded-lg">
-                        <button onClick={() => setViewMode('grid')} className={`p-2 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-zinc-500 hover:text-white'}`}>
+                        <button onClick={() => setViewMode('grid')} className={`p-2 landscape:p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-zinc-500 hover:text-white'}`}>
                             <LayoutGrid size={18} />
                         </button>
-                        <button onClick={() => setViewMode('list')} className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-primary text-white' : 'text-zinc-500 hover:text-white'}`}>
+                        <button onClick={() => setViewMode('list')} className={`p-2 landscape:p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-primary text-white' : 'text-zinc-500 hover:text-white'}`}>
                             <List size={18} />
                         </button>
                     </div>
                 </div>
 
-                <div className="relative mb-3">
+                <div className="relative mb-3 landscape:mb-1.5">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
                     <input
                         type="text"
                         placeholder="Buscar series..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-primary transition-all text-sm"
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2.5 landscape:py-1.5 focus:outline-none focus:border-primary transition-all text-sm"
                     />
                 </div>
 
@@ -268,7 +268,7 @@ const Series = () => {
                         <button
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
-                            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap ${selectedCategory === cat ? 'bg-primary text-white' : 'bg-zinc-900 text-zinc-400 hover:text-white'}`}
+                            className={`flex-shrink-0 px-3 py-1.5 landscape:px-2.5 landscape:py-1 rounded-full text-xs font-bold transition-colors whitespace-nowrap ${selectedCategory === cat ? 'bg-primary text-white' : 'bg-zinc-900 text-zinc-400 hover:text-white'}`}
                         >
                             {cat}
                         </button>

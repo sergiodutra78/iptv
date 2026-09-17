@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Tv, Film, PlayCircle, Heart, Settings as SettingsIcon, Play, Info } from 'lucide-react';
+import { Home, Tv, Film, PlayCircle, Heart, Settings as SettingsIcon, Play, Info, RefreshCw, WifiOff } from 'lucide-react';
 import LiveTV from './pages/LiveTV';
 import Settings from './pages/Settings';
 import Movies from './pages/Movies';
@@ -84,7 +84,7 @@ const BottomNav = () => {
   ];
 
   return (
-    <nav className="h-16 bg-black border-t border-zinc-900 flex items-center justify-around px-1 z-30 flex-shrink-0 safe-area-bottom">
+    <nav className="h-16 landscape:h-11 bg-black border-t border-zinc-900 flex items-center justify-around px-1 z-30 flex-shrink-0 safe-area-bottom">
       {menuItems.map((item) => {
         const isActive = location.pathname === item.path;
         return (
@@ -93,10 +93,10 @@ const BottomNav = () => {
             to={item.path}
             className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-all ${isActive ? 'text-primary' : 'text-zinc-600'}`}
           >
-            <div className={`transition-transform ${isActive ? 'scale-110' : ''}`}>
+            <div className={`transition-transform scale-90 landscape:scale-75 ${isActive ? 'scale-110 landscape:scale-90' : ''}`}>
               {item.icon}
             </div>
-            <span className={`text-[9px] font-bold uppercase tracking-widest ${isActive ? 'text-primary' : 'text-zinc-600'}`}>
+            <span className={`text-[9px] font-bold uppercase tracking-widest landscape:hidden ${isActive ? 'text-primary' : 'text-zinc-600'}`}>
               {item.label}
             </span>
           </Link>
@@ -122,10 +122,10 @@ const AppBar = () => {
   const title = pageTitle[location.pathname] || 'KinetiQ';
 
   return (
-    <header className="h-14 bg-black/95 border-b border-zinc-900/80 flex items-center justify-between px-4 z-30 flex-shrink-0">
+    <header className="h-14 landscape:h-9 bg-black/95 border-b border-zinc-900/80 flex items-center justify-between px-4 landscape:px-3 z-30 flex-shrink-0">
       <Logo size="sm" />
-      <span className="text-xs font-black tracking-widest text-zinc-500 uppercase">{title}</span>
-      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary via-red-800 to-black p-[2px] shadow-lg">
+      <span className="text-xs font-black tracking-widest text-zinc-500 uppercase landscape:hidden">{title}</span>
+      <div className="w-7 h-7 landscape:w-5 landscape:h-5 rounded-full bg-gradient-to-br from-primary via-red-800 to-black p-[2px] shadow-lg">
         <div className="w-full h-full bg-black rounded-full flex items-center justify-center">
           <span className="text-[10px] font-black text-primary">S</span>
         </div>
@@ -194,6 +194,22 @@ const Inicio = () => {
     return (
       <div className="fixed inset-0 z-50 bg-black">
         <VideoPlayer url={selectedItem.url} type={selectedItem.type} onClose={() => setSelectedItem(null)} />
+      </div>
+    );
+  }
+
+  if (!loading && recentMovies.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full py-20 px-8 text-center gap-4">
+        <WifiOff size={56} className="text-zinc-700" />
+        <h2 className="text-xl font-black italic uppercase">Sin contenido</h2>
+        <p className="text-zinc-500 text-sm max-w-xs">No se cargaron películas ni canales. Puede ser un problema de conexión o credenciales.</p>
+        <button
+          onClick={() => { DataService.clearCache(); window.location.reload(); }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-black rounded-xl uppercase text-sm active:scale-95 transition-all mt-2"
+        >
+          <RefreshCw size={16} /> Recargar
+        </button>
       </div>
     );
   }
@@ -281,28 +297,51 @@ const Inicio = () => {
 function App() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const initApp = async () => {
-      const url = getActivePlaylistUrl() || "/uruguay.m3u";
-      try {
-        await DataService.getChannels(url, (p) => setProgress(Math.min(p, 90)));
-        setProgress(95);
-
-        setTimeout(() => {
-          setProgress(100);
-          setTimeout(() => setIsInitialLoading(false), 500);
-        }, 1500);
-      } catch (err) {
-        console.error("Failed to initialize app data", err);
-        setIsInitialLoading(false);
-      }
-    };
-    initApp();
+  const initApp = useCallback(async () => {
+    setLoadError(null);
+    setIsInitialLoading(true);
+    setProgress(0);
+    const url = getActivePlaylistUrl() || "/uruguay.m3u";
+    try {
+      await DataService.getChannels(url, (p) => setProgress(Math.min(p, 90)));
+      setProgress(95);
+      setTimeout(() => {
+        setProgress(100);
+        setTimeout(() => setIsInitialLoading(false), 500);
+      }, 1500);
+    } catch (err: any) {
+      console.error("Failed to initialize app data", err);
+      const msg = err?.message || 'Error desconocido';
+      setLoadError(msg.includes('abort') ? 'Tiempo de espera agotado (45s). Verifica tu conexión.' : msg);
+      setIsInitialLoading(false);
+    }
   }, []);
+
+  useEffect(() => { initApp(); }, [initApp]);
 
   if (isInitialLoading) {
     return <SplashLoading progress={progress} />;
+  }
+
+  if (loadError) {
+    return (
+      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-8 text-center gap-6">
+        <WifiOff size={64} className="text-primary animate-pulse" />
+        <div>
+          <h2 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Error al cargar</h2>
+          <p className="text-zinc-400 text-sm max-w-xs mx-auto">{loadError}</p>
+        </div>
+        <button
+          onClick={initApp}
+          className="flex items-center gap-2 px-6 py-3 bg-primary text-white font-black rounded-xl uppercase tracking-wider text-sm active:scale-95 transition-all"
+        >
+          <RefreshCw size={18} /> Reintentar
+        </button>
+        <p className="text-zinc-600 text-xs">Verifica que tengas conexión a internet</p>
+      </div>
+    );
   }
 
   return (

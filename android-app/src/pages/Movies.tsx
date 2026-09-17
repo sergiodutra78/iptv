@@ -261,13 +261,13 @@ const Movies = () => {
     }
 
     return (
-        <div className="p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div className="p-5 landscape:p-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 landscape:gap-2 mb-8 landscape:mb-3">
                 <div>
-                    <h1 className="text-3xl font-black italic tracking-tighter mb-1">PELÍCULAS</h1>
-                    <p className="text-zinc-500 text-sm">Catálogo de cine a la carta.</p>
+                    <h1 className="text-3xl landscape:text-lg font-black italic tracking-tighter mb-1 landscape:mb-0">PELÍCULAS</h1>
+                    <p className="text-zinc-500 text-sm landscape:hidden">Catálogo de cine a la carta.</p>
                 </div>
-                <div className="flex gap-3 items-center w-full sm:w-auto">
+                <div className="flex gap-3 landscape:gap-2 items-center w-full sm:w-auto">
                     <div className="relative flex-1 sm:w-72">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
                         <input
@@ -275,19 +275,19 @@ const Movies = () => {
                             placeholder="Buscar películas..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-zinc-900 border border-zinc-800 rounded-full pl-10 pr-4 py-2.5 focus:outline-none focus:border-primary transition-all text-sm"
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-full pl-10 pr-4 py-2.5 landscape:py-1.5 focus:outline-none focus:border-primary transition-all text-sm"
                         />
                     </div>
                     <div className="flex gap-1 bg-zinc-900 p-1 rounded-lg">
                         <button
                             onClick={() => setViewMode('grid')}
-                            className={`p-2 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-zinc-500 hover:text-white'}`}
+                            className={`p-2 landscape:p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-zinc-500 hover:text-white'}`}
                         >
                             <LayoutGrid size={18} />
                         </button>
                         <button
                             onClick={() => setViewMode('list')}
-                            className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-primary text-white' : 'text-zinc-500 hover:text-white'}`}
+                            className={`p-2 landscape:p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-primary text-white' : 'text-zinc-500 hover:text-white'}`}
                         >
                             <List size={18} />
                         </button>

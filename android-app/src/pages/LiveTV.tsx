@@ -373,8 +373,8 @@ const LiveTV = () => {
     return (
         <div className="flex flex-col h-full">
             {/* Búsqueda + controles */}
-            <div className="p-4 pb-3">
-                <div className="flex items-center gap-3 mb-3">
+            <div className="p-4 pb-3 landscape:p-2 landscape:pb-1.5">
+                <div className="flex items-center gap-3 landscape:gap-2 mb-3 landscape:mb-1.5">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
                         <input
@@ -382,15 +382,15 @@ const LiveTV = () => {
                             placeholder="Buscar canales o programas..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-primary text-sm"
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2.5 landscape:py-1.5 focus:outline-none focus:border-primary text-sm"
                         />
                     </div>
-                    <div className="flex gap-1 text-zinc-500 items-center text-[10px]">
+                    <div className="flex gap-1 text-zinc-500 items-center text-[10px] landscape:hidden">
                         {epgLoading ? <Loader2 size={14} className="animate-spin" /> : <Clock size={14} />}
                     </div>
                     <div className="flex gap-1">
-                        <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-zinc-800 text-primary' : 'text-zinc-500'}`}><LayoutGrid size={18} /></button>
-                        <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-zinc-800 text-primary' : 'text-zinc-500'}`}><List size={18} /></button>
+                        <button onClick={() => setViewMode('grid')} className={`p-2 landscape:p-1.5 rounded-lg ${viewMode === 'grid' ? 'bg-zinc-800 text-primary' : 'text-zinc-500'}`}><LayoutGrid size={18} /></button>
+                        <button onClick={() => setViewMode('list')} className={`p-2 landscape:p-1.5 rounded-lg ${viewMode === 'list' ? 'bg-zinc-800 text-primary' : 'text-zinc-500'}`}><List size={18} /></button>
                     </div>
                 </div>
 
@@ -400,7 +400,7 @@ const LiveTV = () => {
                         <button
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
-                            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap ${selectedCategory === cat ? 'bg-primary text-white' : 'bg-zinc-900 text-zinc-400 hover:text-white'}`}
+                            className={`flex-shrink-0 px-3 py-1.5 landscape:px-2.5 landscape:py-1 rounded-full text-xs font-bold transition-colors whitespace-nowrap ${selectedCategory === cat ? 'bg-primary text-white' : 'bg-zinc-900 text-zinc-400 hover:text-white'}`}
                         >
                             {cat}
                         </button>

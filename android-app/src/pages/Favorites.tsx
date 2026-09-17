@@ -25,12 +25,12 @@ const Favorites = () => {
     }
 
     return (
-        <div className="p-5" onClick={refresh}>
-            <div className="mb-8">
-                <h1 className="text-3xl font-black italic tracking-tighter mb-1 flex items-center gap-3">
-                    <Heart className="text-primary" fill="currentColor" size={28} /> FAVORITOS
+        <div className="p-5 landscape:p-3" onClick={refresh}>
+            <div className="mb-8 landscape:mb-3">
+                <h1 className="text-3xl landscape:text-lg font-black italic tracking-tighter mb-1 landscape:mb-0 flex items-center gap-3 landscape:gap-2">
+                    <Heart className="text-primary landscape:hidden" fill="currentColor" size={28} /> FAVORITOS
                 </h1>
-                <p className="text-zinc-500 text-sm">Tu contenido guardado para ver más tarde.</p>
+                <p className="text-zinc-500 text-sm landscape:hidden">Tu contenido guardado para ver más tarde.</p>
             </div>
 
             {favorites.length > 0 ? (
