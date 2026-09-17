@@ -84,7 +84,7 @@ const BottomNav = () => {
   ];
 
   return (
-    <nav className="h-16 landscape:h-11 bg-black border-t border-zinc-900 flex items-center justify-around px-1 z-30 flex-shrink-0 safe-area-bottom">
+    <nav className="min-h-16 landscape:min-h-11 bg-black border-t border-zinc-900 flex items-center justify-around px-1 z-30 flex-shrink-0 safe-area-bottom">
       {menuItems.map((item) => {
         const isActive = location.pathname === item.path;
         return (
@@ -122,7 +122,7 @@ const AppBar = () => {
   const title = pageTitle[location.pathname] || 'KinetiQ';
 
   return (
-    <header className="h-14 landscape:h-9 bg-black/95 border-b border-zinc-900/80 flex items-center justify-between px-4 landscape:px-3 z-30 flex-shrink-0">
+    <header className="min-h-14 landscape:min-h-9 bg-black/95 border-b border-zinc-900/80 flex items-center justify-between px-4 landscape:px-3 z-30 flex-shrink-0 safe-area-top">
       <Logo size="sm" />
       <span className="text-xs font-black tracking-widest text-zinc-500 uppercase landscape:hidden">{title}</span>
       <div className="w-7 h-7 landscape:w-5 landscape:h-5 rounded-full bg-gradient-to-br from-primary via-red-800 to-black p-[2px] shadow-lg">

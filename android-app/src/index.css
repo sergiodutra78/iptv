@@ -13,6 +13,16 @@
   }
 }
 
+/* Reserve space for the Android system status/gesture bars so our fixed
+   header and bottom nav aren't drawn (and tapped) underneath them. */
+.safe-area-top {
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+}
+
+.safe-area-bottom {
+  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+}
+
 /* Custom scrollbar for a premium look */
 ::-webkit-scrollbar {
   width: 8px;
