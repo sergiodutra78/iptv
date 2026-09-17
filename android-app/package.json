@@ -36,6 +36,7 @@
   "dependencies": {
     "@awesome-cordova-plugins/streaming-media": "^8.1.0",
     "@capacitor/android": "^8.2.0",
+    "@capacitor/app": "^8.1.1",
     "@capacitor/cli": "^8.2.0",
     "@capacitor/core": "^8.2.0",
     "cordova-plugin-streaming-media": "^2.3.0",

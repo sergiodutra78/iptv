@@ -7,6 +7,7 @@ import { Search, Film, Loader2, PlayCircle, ChevronLeft, Star, LayoutGrid, List,
 import { DataService } from '../services/dataService';
 import { MetadataService, type MediaMetadata } from '../services/metadataService';
 import { WatchProgressService } from '../services/WatchProgressService';
+import { BackHandlerStack } from '../services/backHandlerStack';
 
 const formatProgressTime = (seconds: number): string => {
     const h = Math.floor(seconds / 3600);
@@ -150,6 +151,13 @@ const Movies = () => {
     }, [loading, visibleCount, filteredMovies.length]);
 
     useEffect(() => { setVisibleCount(ITEMS_PER_PAGE); }, [searchQuery]);
+
+    useEffect(() => {
+        if (!selectedMovie || isPlaying) return;
+        const handler = () => setSelectedMovie(null);
+        BackHandlerStack.push(handler);
+        return () => BackHandlerStack.pop(handler);
+    }, [selectedMovie, isPlaying]);
 
     if (isPlaying && selectedMovie) {
         return (

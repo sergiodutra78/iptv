@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { Home, Tv, Film, PlayCircle, Heart, Settings as SettingsIcon, Play, Info, RefreshCw, WifiOff } from 'lucide-react';
 import LiveTV from './pages/LiveTV';
 import Settings from './pages/Settings';
@@ -13,6 +15,7 @@ import { getActivePlaylistUrl } from './config/iptv';
 import VideoPlayer from './components/VideoPlayer';
 import { DataService } from './services/dataService';
 import HorizontalScroll from './components/HorizontalScroll';
+import { BackHandlerStack } from './services/backHandlerStack';
 
 const Logo = ({ size = "md", animate = false }: { size?: "sm" | "md" | "lg", animate?: boolean }) => {
   const isLarge = size === "lg";
@@ -320,6 +323,19 @@ function App() {
   }, []);
 
   useEffect(() => { initApp(); }, [initApp]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const listenerPromise = CapacitorApp.addListener('backButton', () => {
+      if (BackHandlerStack.handle()) return;
+      if (window.history.length > 1 && window.location.hash !== '#/' && window.location.hash !== '') {
+        window.history.back();
+      } else {
+        CapacitorApp.exitApp();
+      }
+    });
+    return () => { listenerPromise.then(l => l.remove()); };
+  }, []);
 
   if (isInitialLoading) {
     return <SplashLoading progress={progress} />;

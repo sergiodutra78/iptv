@@ -7,6 +7,7 @@ import MovieCard from '../components/MovieCard';
 import VideoPlayer from '../components/VideoPlayer';
 import { Search, PlayCircle, Loader2, LayoutGrid, List, ChevronLeft, CheckCircle2, Star } from 'lucide-react';
 import { MetadataService, type MediaMetadata } from '../services/metadataService';
+import { BackHandlerStack } from '../services/backHandlerStack';
 
 const ITEMS_PER_PAGE = 40;
 
@@ -143,7 +144,23 @@ const Series = () => {
         setUpdateTrigger(prev => prev + 1);
     };
 
+    useEffect(() => {
+        if (!selectedSeries || selectedEpisode) return;
+        const handler = () => setSelectedSeries(null);
+        BackHandlerStack.push(handler);
+        return () => BackHandlerStack.pop(handler);
+    }, [selectedSeries, selectedEpisode]);
+
     if (selectedEpisode) {
+        const episodes = selectedSeries?.episodes || [];
+        const currentIndex = episodes.findIndex(e => e.url === selectedEpisode.url);
+        const handleNextEpisode = () => {
+            if (currentIndex < episodes.length - 1) handlePlayEpisode(episodes[currentIndex + 1]);
+        };
+        const handlePrevEpisode = () => {
+            if (currentIndex > 0) handlePlayEpisode(episodes[currentIndex - 1]);
+        };
+
         return (
             <div className="fixed inset-0 z-50 bg-black">
                 <VideoPlayer
@@ -151,6 +168,8 @@ const Series = () => {
                     title={selectedEpisode.name}
                     type={selectedEpisode.type}
                     onClose={() => setSelectedEpisode(null)}
+                    onNext={currentIndex < episodes.length - 1 ? handleNextEpisode : undefined}
+                    onPrev={currentIndex > 0 ? handlePrevEpisode : undefined}
                 />
             </div>
         );

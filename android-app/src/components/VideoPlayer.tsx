@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
+import { Capacitor, SystemBars } from '@capacitor/core';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, List, RotateCcw, RotateCw, Calendar } from 'lucide-react';
 import { WatchProgressService } from '../services/WatchProgressService';
+import { BackHandlerStack } from '../services/backHandlerStack';
 
 interface VideoPlayerProps {
     url: string;
@@ -43,23 +45,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
         let streamUrl = url;
 
         const isHls = streamUrl.toLowerCase().includes('.m3u8') || streamUrl.includes('type=m3u8') || streamUrl.includes('output=m3u8');
-
-
-        // Native player for Android (Capacitor streaming plugin)
-        const plugins = (window as any).plugins;
-        if (plugins && plugins.streamingMedia) {
-            console.log("Using Native Player for", streamUrl);
-            const options = {
-                successCallback: () => { console.log('Native player closed'); onClose?.(); },
-                errorCallback: (e: any) => { console.error('Native Player Error', e); onClose?.(); },
-                orientation: 'landscape',
-                shouldAutoClose: true,
-                shouldAutoPlay: true,
-                controls: true
-            };
-            plugins.streamingMedia.playVideo(streamUrl, options);
-            return;
-        }
 
         if (isHls && Hls.isSupported()) {
             const hls = new Hls({
@@ -146,6 +131,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
+
+    // Hide the Android status/gesture bars while watching, restore them on exit.
+    useEffect(() => {
+        if (!Capacitor.isNativePlatform()) return;
+        SystemBars.hide().catch(() => {});
+        return () => { SystemBars.show().catch(() => {}); };
+    }, []);
+
+    // Let the hardware/gesture back button close the player instead of exiting the app.
+    useEffect(() => {
+        if (!onClose) return;
+        BackHandlerStack.push(onClose);
+        return () => BackHandlerStack.pop(onClose);
+    }, [onClose]);
 
     const togglePlay = () => {
         if (videoRef.current) {
