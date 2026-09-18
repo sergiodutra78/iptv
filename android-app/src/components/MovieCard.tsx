@@ -5,6 +5,7 @@ import { type Channel } from '../services/m3uParser';
 import { MetadataService, type MediaMetadata } from '../services/metadataService';
 import { FavoritesService } from '../services/FavoritesService';
 import { WatchProgressService } from '../services/WatchProgressService';
+import { WatchedService } from '../services/WatchedService';
 
 interface MovieCardProps {
     movie: Channel;
@@ -16,6 +17,7 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
     const [isInView, setIsInView] = useState(false);
     const [isFav, setIsFav] = useState(() => FavoritesService.isFavorite(movie.url));
     const [watchProgress] = useState(() => WatchProgressService.getProgress(movie.url));
+    const isWatched = WatchedService.isWatched(movie.url);
     const cardRef = useRef<HTMLDivElement>(null);
 
     const toggleFavorite = (e: React.MouseEvent) => {
@@ -96,8 +98,15 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
                     <Heart size={14} fill={isFav ? 'currentColor' : 'none'} />
                 </button>
 
+                {/* Distintivo de visto completo */}
+                {isWatched && (
+                    <div className="absolute top-2 left-2 z-20 px-1.5 py-0.5 bg-green-500/90 text-white text-[9px] font-black uppercase rounded">
+                        Vista
+                    </div>
+                )}
+
                 {/* Barra de progreso (estilo Netflix) */}
-                {watchProgress > 0 && (
+                {!isWatched && watchProgress > 0 && (
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-zinc-700/60 z-30">
                         <div className="h-full bg-primary rounded-r-full" style={{ width: `${watchProgress * 100}%` }} />
                     </div>

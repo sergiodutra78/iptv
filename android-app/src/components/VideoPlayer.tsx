@@ -25,9 +25,11 @@ interface VideoPlayerProps {
     /** Heading above the side list. */
     panelTitle?: string;
     onSelectIndex?: (index: number) => void;
+    /** Fired once, when this stream stops playing, with how far it got. */
+    onPlaybackProgress?: (info: { url: string; positionSec: number; durationSec: number; completed: boolean }) => void;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 'live', onClose, onNext, onPrev, onToggleChannelList, onToggleEPG, playlist, playlistSubtitles, playlistIndex = -1, panelTitle, onSelectIndex }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 'live', onClose, onNext, onPrev, onToggleChannelList, onToggleEPG, playlist, playlistSubtitles, playlistIndex = -1, panelTitle, onSelectIndex, onPlaybackProgress }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(true);
@@ -49,8 +51,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
 
     // Keep the callbacks/labels the native player needs reachable from the
     // promise it resolves long after this render.
-    const latest = useRef({ title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex });
-    latest.current = { title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex };
+    const latest = useRef({ title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex, onPlaybackProgress });
+    latest.current = { title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex, onPlaybackProgress };
 
     // The provider serves movies/series as MKV and live channels as MPEG-TS,
     // which the WebView's <video> and hls.js cannot decode. On device playback
@@ -83,7 +85,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
         }).then(result => {
             const handlers = latest.current;
             if (type !== 'live' && result.positionMs > 0 && result.durationMs > 0) {
-                WatchProgressService.save(streamUrl, result.positionMs / 1000, result.durationMs / 1000);
+                const positionSec = result.positionMs / 1000;
+                const durationSec = result.durationMs / 1000;
+                WatchProgressService.save(streamUrl, positionSec, durationSec);
+                handlers.onPlaybackProgress?.({
+                    url: streamUrl,
+                    positionSec,
+                    durationSec,
+                    completed: WatchProgressService.isCompleted(positionSec, durationSec),
+                });
             }
             if (result.reason === 'index' && result.index >= 0 && handlers.onSelectIndex) {
                 handlers.onSelectIndex(result.index);
@@ -212,12 +222,30 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
         return () => { SystemBars.show().catch(() => {}); };
     }, []);
 
+    // Browser-dev-only path (device playback never reaches here, see playNative
+    // above): report how far the web <video> got before handing off to onClose,
+    // mirroring what the native player reports on its own close. Reads from
+    // `latest` so the one function pushed to the back stack below never goes
+    // stale even though onClose/onPlaybackProgress can change identity.
+    const handleClose = () => {
+        const video = videoRef.current;
+        const handlers = latest.current;
+        if (video && video.duration > 0 && type !== 'live') {
+            const positionSec = video.currentTime;
+            const durationSec = video.duration;
+            WatchProgressService.save(url, positionSec, durationSec);
+            handlers.onPlaybackProgress?.({ url, positionSec, durationSec, completed: WatchProgressService.isCompleted(positionSec, durationSec) });
+        }
+        handlers.onClose?.();
+    };
+
     // Let the hardware/gesture back button close the player instead of exiting the app.
     useEffect(() => {
         if (!onClose) return;
-        BackHandlerStack.push(onClose);
-        return () => BackHandlerStack.pop(onClose);
-    }, [onClose]);
+        BackHandlerStack.push(handleClose);
+        return () => BackHandlerStack.pop(handleClose);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const togglePlay = () => {
         if (videoRef.current) {
@@ -342,7 +370,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
                     </div>
                     {onClose && (
                         <button
-                            onClick={onClose}
+                            onClick={handleClose}
                             className="p-3 bg-white/5 hover:bg-white/15 backdrop-blur-md rounded-full transition-all border border-white/10"
                         >
                             ✕

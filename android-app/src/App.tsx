@@ -13,9 +13,10 @@ import CachedImage from './components/CachedImage';
 import { type Channel } from './services/m3uParser';
 import { getActivePlaylistUrl } from './config/iptv';
 import VideoPlayer from './components/VideoPlayer';
-import { DataService } from './services/dataService';
+import { DataService, type GroupedSeries } from './services/dataService';
 import HorizontalScroll from './components/HorizontalScroll';
 import { BackHandlerStack } from './services/backHandlerStack';
+import { WatchedService } from './services/WatchedService';
 
 const Logo = ({ size = "md", animate = false }: { size?: "sm" | "md" | "lg", animate?: boolean }) => {
   const isLarge = size === "lg";
@@ -87,7 +88,7 @@ const BottomNav = () => {
   ];
 
   return (
-    <nav className="min-h-16 landscape:min-h-11 bg-black border-t border-zinc-900 flex items-center justify-around px-1 z-30 flex-shrink-0 safe-area-bottom">
+    <nav className="min-h-16 landscape:min-h-11 bg-black border-t border-zinc-900 flex items-center justify-around px-1 z-30 flex-shrink-0 safe-area-bottom safe-area-left safe-area-right">
       {menuItems.map((item) => {
         const isActive = location.pathname === item.path;
         return (
@@ -125,7 +126,7 @@ const AppBar = () => {
   const title = pageTitle[location.pathname] || 'KinetiQ';
 
   return (
-    <header className="min-h-14 landscape:min-h-9 bg-black/95 border-b border-zinc-900/80 flex items-center justify-between px-4 landscape:px-3 z-30 flex-shrink-0 safe-area-top">
+    <header className="min-h-14 landscape:min-h-9 bg-black/95 border-b border-zinc-900/80 flex items-center justify-between px-4 landscape:px-3 z-30 flex-shrink-0 safe-area-top safe-area-left safe-area-right">
       <Logo size="sm" />
       <span className="text-xs font-black tracking-widest text-zinc-500 uppercase landscape:hidden">{title}</span>
       <div className="w-7 h-7 landscape:w-5 landscape:h-5 rounded-full bg-gradient-to-br from-primary via-red-800 to-black p-[2px] shadow-lg">
@@ -141,7 +142,7 @@ const Inicio = () => {
   const navigate = useNavigate();
   const [heroMovie, setHeroMovie] = useState<Channel | null>(null);
   const [recentMovies, setRecentMovies] = useState<Channel[]>([]);
-  const [recentSeries, setRecentSeries] = useState<Channel[]>([]);
+  const [recentSeries, setRecentSeries] = useState<GroupedSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<Channel | null>(null);
 
@@ -158,7 +159,7 @@ const Inicio = () => {
 
         const groupedSeriesList = DataService.getGroupedSeriesSync();
         const recentGroups = [...groupedSeriesList].reverse().slice(0, 50);
-        setRecentSeries(recentGroups as any);
+        setRecentSeries(recentGroups);
 
         if (allRecentMovies.length > 0) {
           const top10 = allRecentMovies.slice(0, 10);
@@ -194,9 +195,34 @@ const Inicio = () => {
   }, []);
 
   if (selectedItem) {
+    // A card from "SERIES TENDENCIA" is a GroupedSeries standing in for its
+    // first episode; give it the episode list so Next/side-panel work exactly
+    // as they do from the Series page. A movie card gets the same recent list
+    // Movies would show, both matching what the native player renders now.
+    const seriesGroup = selectedItem.type === 'series' ? recentSeries.find(s => s.url === selectedItem.url) : undefined;
+    const list: Channel[] = seriesGroup ? seriesGroup.episodes : recentMovies;
+    const currentIndex = list.findIndex(i => i.url === selectedItem.url);
+    const hasNext = currentIndex > -1 && currentIndex < list.length - 1;
+    const hasPrev = currentIndex > 0;
+
     return (
       <div className="fixed inset-0 z-50 bg-black">
-        <VideoPlayer url={selectedItem.url} type={selectedItem.type} onClose={() => setSelectedItem(null)} />
+        <VideoPlayer
+          url={selectedItem.url}
+          title={selectedItem.name}
+          subtitle={seriesGroup?.name}
+          type={selectedItem.type}
+          onClose={() => setSelectedItem(null)}
+          onNext={hasNext ? () => setSelectedItem(list[currentIndex + 1]) : undefined}
+          onPrev={hasPrev ? () => setSelectedItem(list[currentIndex - 1]) : undefined}
+          panelTitle={seriesGroup ? 'Capítulos' : 'Películas'}
+          playlist={list.map(i => i.name)}
+          playlistIndex={currentIndex}
+          onSelectIndex={(index) => { if (list[index]) setSelectedItem(list[index]); }}
+          onPlaybackProgress={({ url, completed }) => {
+            if (completed) WatchedService.markAsWatched(url);
+          }}
+        />
       </div>
     );
   }
@@ -364,7 +390,7 @@ function App() {
     <Router>
       <div className="flex flex-col h-screen overflow-hidden bg-black text-white selection:bg-primary/30">
         <AppBar />
-        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar main-content-area">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar main-content-area safe-area-left safe-area-right">
           <Routes>
             <Route path="/" element={<Inicio />} />
             <Route path="/tv" element={<LiveTV />} />

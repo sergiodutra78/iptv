@@ -21,7 +21,7 @@ export class WatchProgressService {
     static save(url: string, position: number, duration: number): void {
         if (!url || !duration || duration < 120 || isNaN(position) || isNaN(duration)) return;
         const all = this.getAll();
-        if (position / duration >= COMPLETED_THRESHOLD) {
+        if (this.isCompleted(position, duration)) {
             delete all[url];
         } else {
             all[url] = { position, duration, lastWatched: Date.now() };
@@ -30,6 +30,11 @@ export class WatchProgressService {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
         } catch {}
+    }
+
+    /** True once enough of the runtime played to count as "watched" (there's usually a bit of credits left). */
+    static isCompleted(position: number, duration: number): boolean {
+        return !!duration && position / duration >= COMPLETED_THRESHOLD;
     }
 
     static get(url: string): ProgressEntry | null {

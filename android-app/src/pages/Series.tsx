@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { type Channel } from '../services/m3uParser';
 import { type GroupedSeries, DataService } from '../services/dataService';
 import { WatchedService } from '../services/WatchedService';
+import { WatchProgressService } from '../services/WatchProgressService';
 import { getActivePlaylistUrl } from '../config/iptv';
 import MovieCard from '../components/MovieCard';
 import VideoPlayer from '../components/VideoPlayer';
@@ -139,9 +140,7 @@ const Series = () => {
     useEffect(() => { setVisibleCount(ITEMS_PER_PAGE); }, [selectedCategory, searchQuery]);
 
     const handlePlayEpisode = (episode: Channel) => {
-        WatchedService.markAsWatched(episode.url);
         setSelectedEpisode(episode);
-        setUpdateTrigger(prev => prev + 1);
     };
 
     useEffect(() => {
@@ -176,6 +175,10 @@ const Series = () => {
                     playlistIndex={currentIndex}
                     onSelectIndex={(index) => {
                         if (episodes[index]) handlePlayEpisode(episodes[index]);
+                    }}
+                    onPlaybackProgress={({ url, completed }) => {
+                        if (completed) WatchedService.markAsWatched(url);
+                        setUpdateTrigger(prev => prev + 1);
                     }}
                 />
             </div>
@@ -229,11 +232,12 @@ const Series = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             {selectedSeries.episodes.map((ep, index) => {
                                 const watched = WatchedService.isWatched(ep.url);
+                                const progress = watched ? 1 : WatchProgressService.getProgress(ep.url);
                                 return (
                                     <div
                                         key={ep.url + index}
                                         onClick={() => handlePlayEpisode(ep)}
-                                        className="flex items-center gap-4 p-4 bg-zinc-900/40 hover:bg-zinc-900 border border-zinc-800/50 hover:border-primary/50 rounded-xl cursor-pointer transition-all group"
+                                        className="flex items-center gap-4 p-4 bg-zinc-900/40 hover:bg-zinc-900 border border-zinc-800/50 hover:border-primary/50 rounded-xl cursor-pointer transition-all group overflow-hidden relative"
                                     >
                                         <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0 group-hover:bg-primary transition-colors">
                                             {watched ? (
@@ -244,10 +248,17 @@ const Series = () => {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <h3 className={`font-bold truncate text-sm ${watched ? 'text-zinc-400' : 'text-white'}`}>{ep.name}</h3>
+                                            {!watched && progress > 0 && (
+                                                <div className="w-full h-1 bg-zinc-800 rounded-full mt-1.5 overflow-hidden">
+                                                    <div className="h-full bg-primary rounded-full" style={{ width: `${progress * 100}%` }} />
+                                                </div>
+                                            )}
                                         </div>
-                                        {watched && (
-                                            <span className="text-[10px] px-2 py-0.5 bg-green-500/10 text-green-500 border border-green-500/20 rounded-full font-bold uppercase">Visto</span>
-                                        )}
+                                        {watched ? (
+                                            <span className="text-[10px] px-2 py-0.5 bg-green-500/10 text-green-500 border border-green-500/20 rounded-full font-bold uppercase flex-shrink-0">Visto</span>
+                                        ) : progress > 0 ? (
+                                            <span className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-full font-bold uppercase flex-shrink-0">{Math.round(progress * 100)}%</span>
+                                        ) : null}
                                     </div>
                                 );
                             })}

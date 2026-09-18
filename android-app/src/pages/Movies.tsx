@@ -7,6 +7,7 @@ import { Search, Film, Loader2, PlayCircle, ChevronLeft, Star, LayoutGrid, List,
 import { DataService } from '../services/dataService';
 import { MetadataService, type MediaMetadata } from '../services/metadataService';
 import { WatchProgressService } from '../services/WatchProgressService';
+import { WatchedService } from '../services/WatchedService';
 import { BackHandlerStack } from '../services/backHandlerStack';
 
 const formatProgressTime = (seconds: number): string => {
@@ -179,6 +180,9 @@ const Movies = () => {
                     onSelectIndex={(index) => {
                         if (filteredMovies[index]) setSelectedMovie(filteredMovies[index]);
                     }}
+                    onPlaybackProgress={({ url, completed }) => {
+                        if (completed) WatchedService.markAsWatched(url);
+                    }}
                 />
             </div>
         );
@@ -217,6 +221,9 @@ const Movies = () => {
                                 )}
                                 {metadata?.year && <span className="bg-white/10 px-2 py-1 rounded">{metadata.year}</span>}
                                 <span className="bg-primary/20 text-primary px-2 py-1 rounded uppercase tracking-wider">Película</span>
+                                {WatchedService.isWatched(selectedMovie.url) && (
+                                    <span className="bg-green-500/10 text-green-500 border border-green-500/20 px-2 py-1 rounded uppercase tracking-wider">Vista</span>
+                                )}
                             </div>
 
                             {metadata?.genres && metadata.genres.length > 0 && (
