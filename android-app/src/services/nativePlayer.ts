@@ -18,6 +18,11 @@ export interface NativePlayerOptions {
     /** Index of `playlist[0]` in the full list, so results map back. */
     playlistOffset?: number;
     startPositionMs?: number;
+    /** Live only: current/next programme, shown in a panel on the right. */
+    epgNowTitle?: string;
+    epgNowTime?: string;
+    epgNextTitle?: string;
+    epgNextTime?: string;
 }
 
 export interface NativePlayerResult {

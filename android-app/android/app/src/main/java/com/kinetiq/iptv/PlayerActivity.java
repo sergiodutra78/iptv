@@ -73,6 +73,10 @@ public class PlayerActivity extends Activity {
     public static final String EXTRA_PLAYLIST_OFFSET = "playlistOffset";
     public static final String EXTRA_PANEL_TITLE = "panelTitle";
     public static final String EXTRA_START_POSITION = "startPositionMs";
+    public static final String EXTRA_EPG_NOW_TITLE = "epgNowTitle";
+    public static final String EXTRA_EPG_NOW_TIME = "epgNowTime";
+    public static final String EXTRA_EPG_NEXT_TITLE = "epgNextTitle";
+    public static final String EXTRA_EPG_NEXT_TIME = "epgNextTime";
 
     public static final String RESULT_REASON = "reason";
     public static final String RESULT_INDEX = "index";
@@ -95,6 +99,7 @@ public class PlayerActivity extends Activity {
     private LinearLayout mBottomBar;
     private LinearLayout mPanel;
     private ListView mPanelList;
+    private LinearLayout mEpgPanel;
     private ImageButton mPlayPauseBtn;
     private ImageButton mPrevBtn;
     private ImageButton mNextBtn;
@@ -117,6 +122,10 @@ public class PlayerActivity extends Activity {
     private ArrayList<String> mPlaylistSubtitles = new ArrayList<>();
     private int mPlaylistIndex = -1;
     private int mPlaylistOffset = 0;
+    private String mEpgNowTitle = "";
+    private String mEpgNowTime = "";
+    private String mEpgNextTitle = "";
+    private String mEpgNextTime = "";
 
     private boolean mControlsVisible = true;
     private boolean mUserSeeking = false;
@@ -160,6 +169,10 @@ public class PlayerActivity extends Activity {
             if (subtitles != null) mPlaylistSubtitles = subtitles;
             mPlaylistIndex = b.getInt(EXTRA_PLAYLIST_INDEX, -1);
             mPlaylistOffset = b.getInt(EXTRA_PLAYLIST_OFFSET, 0);
+            mEpgNowTitle = orEmpty(b.getString(EXTRA_EPG_NOW_TITLE));
+            mEpgNowTime = orEmpty(b.getString(EXTRA_EPG_NOW_TIME));
+            mEpgNextTitle = orEmpty(b.getString(EXTRA_EPG_NEXT_TITLE));
+            mEpgNextTime = orEmpty(b.getString(EXTRA_EPG_NEXT_TIME));
         }
 
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
@@ -210,6 +223,7 @@ public class PlayerActivity extends Activity {
         buildTopBar();
         buildBottomBar();
         buildPanel();
+        buildEpgPanel();
         buildCenterBar();
 
         root.addView(mOverlay);
@@ -400,6 +414,81 @@ public class PlayerActivity extends Activity {
                 }
             });
         }
+    }
+
+    /** Current + next programme for the channel, fading in over the right edge. */
+    private void buildEpgPanel() {
+        if (!mIsLive || mEpgNowTitle.isEmpty()) return;
+
+        mEpgPanel = new LinearLayout(this);
+        mEpgPanel.setOrientation(LinearLayout.VERTICAL);
+        mEpgPanel.setBackground(new GradientDrawable(
+                GradientDrawable.Orientation.RIGHT_LEFT,
+                new int[]{Color.argb(242, 0, 0, 0), Color.argb(196, 0, 0, 0), Color.TRANSPARENT}));
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(
+                dp(PANEL_WIDTH_DP), RelativeLayout.LayoutParams.MATCH_PARENT);
+        params.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+        params.addRule(RelativeLayout.BELOW, mTopBar.getId());
+        params.addRule(RelativeLayout.ABOVE, mBottomBar.getId());
+        mEpgPanel.setLayoutParams(params);
+        mEpgPanel.setPadding(dp(18), dp(16), dp(18), dp(16));
+
+        TextView header = new TextView(this);
+        header.setText("PROGRAMACIÓN");
+        header.setTextColor(Color.argb(170, 255, 255, 255));
+        header.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        header.setPadding(0, 0, 0, dp(12));
+        mEpgPanel.addView(header);
+
+        mEpgPanel.addView(buildEpgRow("AHORA", mEpgNowTime, mEpgNowTitle, true));
+
+        if (!mEpgNextTitle.isEmpty()) {
+            View divider = new View(this);
+            LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+            dividerParams.setMargins(0, dp(14), 0, dp(14));
+            divider.setLayoutParams(dividerParams);
+            divider.setBackgroundColor(Color.argb(50, 255, 255, 255));
+            mEpgPanel.addView(divider);
+
+            mEpgPanel.addView(buildEpgRow("A CONTINUACIÓN", mEpgNextTime, mEpgNextTitle, false));
+        }
+
+        mOverlay.addView(mEpgPanel);
+    }
+
+    private View buildEpgRow(String label, String time, String title, boolean current) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+
+        View marker = new View(this);
+        marker.setLayoutParams(new LinearLayout.LayoutParams(dp(3), dp(34)));
+        marker.setBackgroundColor(current ? ACCENT : Color.TRANSPARENT);
+        row.addView(marker);
+
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams columnParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        columnParams.setMargins(dp(10), 0, 0, 0);
+        column.setLayoutParams(columnParams);
+
+        TextView labelText = new TextView(this);
+        labelText.setText(time.isEmpty() ? label : label + " · " + time);
+        labelText.setTextColor(current ? ACCENT : Color.argb(150, 255, 255, 255));
+        labelText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        column.addView(labelText);
+
+        TextView titleText = new TextView(this);
+        titleText.setText(title);
+        titleText.setTextColor(Color.WHITE);
+        titleText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        titleText.setMaxLines(2);
+        titleText.setEllipsize(TextUtils.TruncateAt.END);
+        column.addView(titleText);
+
+        row.addView(column);
+        return row;
     }
 
     private void buildCenterBar() {
@@ -681,6 +770,7 @@ public class PlayerActivity extends Activity {
         mCenterBar.setVisibility(mIsLive ? View.GONE : visibility);
         mBottomBar.setVisibility(mIsLive ? View.GONE : visibility);
         if (mPanel != null) mPanel.setVisibility(visibility);
+        if (mEpgPanel != null) mEpgPanel.setVisibility(visibility);
         mOverlay.setBackgroundColor(visible ? SCRIM : Color.TRANSPARENT);
         if (visible) {
             scheduleHide();

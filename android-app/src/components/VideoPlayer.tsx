@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
-import { Capacitor, SystemBars } from '@capacitor/core';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, List, RotateCcw, RotateCw, Calendar } from 'lucide-react';
 import { WatchProgressService } from '../services/WatchProgressService';
 import { BackHandlerStack } from '../services/backHandlerStack';
@@ -27,9 +26,12 @@ interface VideoPlayerProps {
     onSelectIndex?: (index: number) => void;
     /** Fired once, when this stream stops playing, with how far it got. */
     onPlaybackProgress?: (info: { url: string; positionSec: number; durationSec: number; completed: boolean }) => void;
+    /** Live only: current/next programme, shown in a panel on the right. */
+    epgNow?: { title: string; time?: string };
+    epgNext?: { title: string; time?: string };
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 'live', onClose, onNext, onPrev, onToggleChannelList, onToggleEPG, playlist, playlistSubtitles, playlistIndex = -1, panelTitle, onSelectIndex, onPlaybackProgress }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 'live', onClose, onNext, onPrev, onToggleChannelList, onToggleEPG, playlist, playlistSubtitles, playlistIndex = -1, panelTitle, onSelectIndex, onPlaybackProgress, epgNow, epgNext }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(true);
@@ -51,8 +53,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
 
     // Keep the callbacks/labels the native player needs reachable from the
     // promise it resolves long after this render.
-    const latest = useRef({ title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex, onPlaybackProgress });
-    latest.current = { title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex, onPlaybackProgress };
+    const latest = useRef({ title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex, onPlaybackProgress, epgNow, epgNext });
+    latest.current = { title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex, onPlaybackProgress, epgNow, epgNext };
 
     // The provider serves movies/series as MKV and live channels as MPEG-TS,
     // which the WebView's <video> and hls.js cannot decode. On device playback
@@ -81,6 +83,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
             hasNext: !!props.onNext,
             hasPrev: !!props.onPrev,
             startPositionMs: saved && saved.position > 30 ? Math.floor(saved.position * 1000) : 0,
+            epgNowTitle: props.epgNow?.title || '',
+            epgNowTime: props.epgNow?.time || '',
+            epgNextTitle: props.epgNext?.title || '',
+            epgNextTime: props.epgNext?.time || '',
             ...listWindow,
         }).then(result => {
             const handlers = latest.current;
@@ -215,12 +221,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
-    // Hide the Android status/gesture bars while watching, restore them on exit.
-    useEffect(() => {
-        if (!Capacitor.isNativePlatform()) return;
-        SystemBars.hide().catch(() => {});
-        return () => { SystemBars.show().catch(() => {}); };
-    }, []);
 
     // Browser-dev-only path (device playback never reaches here, see playNative
     // above): report how far the web <video> got before handing off to onClose,

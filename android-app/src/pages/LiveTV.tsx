@@ -149,6 +149,18 @@ const ChannelPlayerOverlay = ({
             .sort((a, b) => a.start.getTime() - b.start.getTime());
     }, [fullDayPrograms]);
 
+    // Current + next programme for the right-side panel in the native player.
+    const epgNowNext = useMemo(() => {
+        if (!currentProgram) return { now: undefined, next: undefined };
+        const fmt = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const idx = todayPrograms.findIndex(p => p.start.getTime() === currentProgram.start.getTime());
+        const nextProg = idx >= 0 ? todayPrograms[idx + 1] : undefined;
+        return {
+            now: { title: currentProgram.title, time: fmt(currentProgram.start) },
+            next: nextProg ? { title: nextProg.title, time: fmt(nextProg.start) } : undefined,
+        };
+    }, [currentProgram, todayPrograms]);
+
     return (
         <div className="fixed inset-0 z-50 overflow-hidden bg-black flex">
             <VideoPlayer
@@ -168,6 +180,8 @@ const ChannelPlayerOverlay = ({
                 onSelectIndex={(index) => {
                     if (filteredChannels[index]) setSelectedChannel(filteredChannels[index]);
                 }}
+                epgNow={epgNowNext.now}
+                epgNext={epgNowNext.next}
             />
 
             {showEPGGrid && (
