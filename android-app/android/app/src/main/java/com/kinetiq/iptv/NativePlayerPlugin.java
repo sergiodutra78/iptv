@@ -50,19 +50,25 @@ public class NativePlayerPlugin extends Plugin {
         intent.putExtra(PlayerActivity.EXTRA_PLAYLIST_OFFSET, offset == null ? 0 : offset.intValue());
         intent.putExtra(PlayerActivity.EXTRA_START_POSITION, startPosition == null ? 0L : startPosition.longValue());
 
-        JSArray playlist = call.getArray("playlist", new JSArray());
-        ArrayList<String> titles = new ArrayList<>();
-        try {
-            List<String> parsed = playlist.toList();
-            for (Object item : parsed) {
-                titles.add(String.valueOf(item));
-            }
-        } catch (JSONException e) {
-            // A malformed playlist is not worth failing playback over.
-        }
-        intent.putStringArrayListExtra(PlayerActivity.EXTRA_PLAYLIST, titles);
+        intent.putStringArrayListExtra(PlayerActivity.EXTRA_PLAYLIST,
+                toStringList(call.getArray("playlist", new JSArray())));
+        intent.putStringArrayListExtra(PlayerActivity.EXTRA_PLAYLIST_SUBTITLES,
+                toStringList(call.getArray("playlistSubtitles", new JSArray())));
 
         startActivityForResult(call, intent, "playResult");
+    }
+
+    private static ArrayList<String> toStringList(JSArray array) {
+        ArrayList<String> values = new ArrayList<>();
+        try {
+            List<Object> parsed = array.toList();
+            for (Object item : parsed) {
+                values.add(item == null ? "" : String.valueOf(item));
+            }
+        } catch (JSONException e) {
+            // A malformed list is not worth failing playback over.
+        }
+        return values;
     }
 
     @ActivityCallback

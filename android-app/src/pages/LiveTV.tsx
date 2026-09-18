@@ -107,12 +107,18 @@ const ChannelPlayerOverlay = ({
     showEPGGrid: boolean, setShowEPGGrid: (b: boolean) => void,
     setSelectedChannel: (c: Channel | null) => void, selectedCategory: string
 }) => {
-    const [fullDayPrograms, setFullDayPrograms] = useState<any[]>([]);
+    const [shortPrograms, setShortPrograms] = useState<any[]>([]);
     const [loadingShort, setLoadingShort] = useState(false);
 
+    // Derived, not stored: the native player is launched from an effect in
+    // VideoPlayer that runs before this component's own effects, so a
+    // programme title parked in state would always arrive one channel late.
+    const xmltvPrograms = useMemo(() => EPGService.getPrograms(channel, epgData) || [], [channel, epgData]);
+    const fullDayPrograms = xmltvPrograms.length > 0 ? xmltvPrograms : shortPrograms;
+
     useEffect(() => {
-        const progs = EPGService.getPrograms(channel, epgData);
-        if (progs && progs.length > 0) { setFullDayPrograms(progs); return; }
+        setShortPrograms([]);
+        if (xmltvPrograms.length > 0) return;
 
         const match = channel.url.match(/\/live\/[^\/]+\/[^\/]+\/(\d+)\.(ts|m3u8)/i);
         const streamId = match ? match[1] : null;
@@ -120,12 +126,18 @@ const ChannelPlayerOverlay = ({
         if (streamId && configToUse?.xtreamCodes?.baseUrl && configToUse?.xtreamCodes?.username) {
             setLoadingShort(true);
             EPGService.fetchShortEPG(streamId, configToUse.xtreamCodes.baseUrl, configToUse.xtreamCodes.username, configToUse.xtreamCodes.password)
-                .then(shorts => { if (shorts && shorts.length > 0) setFullDayPrograms(shorts); })
+                .then(shorts => { if (shorts && shorts.length > 0) setShortPrograms(shorts); })
                 .finally(() => setLoadingShort(false));
         }
-    }, [channel, epgData, configToUse]);
+    }, [channel, xmltvPrograms, configToUse]);
 
     const currentProgram = EPGService.getCurrentProgram(fullDayPrograms);
+
+    // What's on right now for every channel in the list, for the side panel.
+    const channelPrograms = useMemo(
+        () => filteredChannels.map(c => EPGService.getCurrentProgram(EPGService.getPrograms(c, epgData) || [])?.title || ''),
+        [filteredChannels, epgData]
+    );
 
     const todayPrograms = useMemo(() => {
         const now = new Date();
@@ -151,6 +163,7 @@ const ChannelPlayerOverlay = ({
                 onToggleEPG={() => { setShowEPGGrid(!showEPGGrid); setShowChannelList(false); }}
                 panelTitle="Canales"
                 playlist={filteredChannels.map(c => c.name)}
+                playlistSubtitles={channelPrograms}
                 playlistIndex={filteredChannels.findIndex(c => c.url === channel.url)}
                 onSelectIndex={(index) => {
                     if (filteredChannels[index]) setSelectedChannel(filteredChannels[index]);

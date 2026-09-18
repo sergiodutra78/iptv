@@ -18,6 +18,8 @@ interface VideoPlayerProps {
     onToggleEPG?: () => void;
     /** Labels for the side list shown over the video (episodes, channels...). */
     playlist?: string[];
+    /** Second line per item in that list, e.g. the programme on air. */
+    playlistSubtitles?: string[];
     /** Index of what's playing inside `playlist`. */
     playlistIndex?: number;
     /** Heading above the side list. */
@@ -25,7 +27,7 @@ interface VideoPlayerProps {
     onSelectIndex?: (index: number) => void;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 'live', onClose, onNext, onPrev, onToggleChannelList, onToggleEPG, playlist, playlistIndex = -1, panelTitle, onSelectIndex }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 'live', onClose, onNext, onPrev, onToggleChannelList, onToggleEPG, playlist, playlistSubtitles, playlistIndex = -1, panelTitle, onSelectIndex }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(true);
@@ -47,8 +49,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
 
     // Keep the callbacks/labels the native player needs reachable from the
     // promise it resolves long after this render.
-    const latest = useRef({ title, subtitle, panelTitle, playlist, playlistIndex, onClose, onNext, onPrev, onSelectIndex });
-    latest.current = { title, subtitle, panelTitle, playlist, playlistIndex, onClose, onNext, onPrev, onSelectIndex };
+    const latest = useRef({ title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex });
+    latest.current = { title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex };
 
     // The provider serves movies/series as MKV and live channels as MPEG-TS,
     // which the WebView's <video> and hls.js cannot decode. On device playback
@@ -64,8 +66,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
         const props = latest.current;
         const labels = props.playlist || [];
         const listWindow = labels.length
-            ? windowPlaylist(labels, props.playlistIndex ?? -1)
-            : { playlist: [], playlistIndex: -1, playlistOffset: 0 };
+            ? windowPlaylist(labels, props.playlistIndex ?? -1, props.playlistSubtitles || [])
+            : { playlist: [], playlistSubtitles: [], playlistIndex: -1, playlistOffset: 0 };
         const saved = type !== 'live' ? WatchProgressService.get(streamUrl) : null;
 
         NativePlayer.play({

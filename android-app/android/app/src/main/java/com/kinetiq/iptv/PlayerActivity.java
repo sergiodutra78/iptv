@@ -68,6 +68,7 @@ public class PlayerActivity extends Activity {
     public static final String EXTRA_HAS_NEXT = "hasNext";
     public static final String EXTRA_HAS_PREV = "hasPrev";
     public static final String EXTRA_PLAYLIST = "playlist";
+    public static final String EXTRA_PLAYLIST_SUBTITLES = "playlistSubtitles";
     public static final String EXTRA_PLAYLIST_INDEX = "playlistIndex";
     public static final String EXTRA_PLAYLIST_OFFSET = "playlistOffset";
     public static final String EXTRA_PANEL_TITLE = "panelTitle";
@@ -113,6 +114,7 @@ public class PlayerActivity extends Activity {
     private boolean mHasPrev;
     private long mStartPositionMs;
     private ArrayList<String> mPlaylist = new ArrayList<>();
+    private ArrayList<String> mPlaylistSubtitles = new ArrayList<>();
     private int mPlaylistIndex = -1;
     private int mPlaylistOffset = 0;
 
@@ -154,6 +156,8 @@ public class PlayerActivity extends Activity {
             mStartPositionMs = b.getLong(EXTRA_START_POSITION, 0L);
             ArrayList<String> list = b.getStringArrayList(EXTRA_PLAYLIST);
             if (list != null) mPlaylist = list;
+            ArrayList<String> subtitles = b.getStringArrayList(EXTRA_PLAYLIST_SUBTITLES);
+            if (subtitles != null) mPlaylistSubtitles = subtitles;
             mPlaylistIndex = b.getInt(EXTRA_PLAYLIST_INDEX, -1);
             mPlaylistOffset = b.getInt(EXTRA_PLAYLIST_OFFSET, 0);
         }
@@ -223,20 +227,11 @@ public class PlayerActivity extends Activity {
         params.setMargins(dp(14), dp(14), dp(14), 0);
         mTopBar.setLayoutParams(params);
 
-        ImageButton closeBtn = iconButton(android.R.drawable.ic_menu_close_clear_cancel, dp(38));
-        closeBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                finishWith("close", -1);
-            }
-        });
-        mTopBar.addView(closeBtn);
-
         LinearLayout titleColumn = new LinearLayout(this);
         titleColumn.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams columnParams =
                 new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        columnParams.setMargins(dp(10), 0, dp(10), 0);
+        columnParams.setMargins(0, 0, dp(10), 0);
         titleColumn.setLayoutParams(columnParams);
 
         TextView titleText = new TextView(this);
@@ -266,6 +261,19 @@ public class PlayerActivity extends Activity {
         mLiveBadge.setPadding(dp(8), dp(3), dp(8), dp(3));
         mLiveBadge.setVisibility(mIsLive ? View.VISIBLE : View.GONE);
         mTopBar.addView(mLiveBadge);
+
+        // Close sits on the right so the left column stays clear for the list.
+        ImageButton closeBtn = iconButton(android.R.drawable.ic_menu_close_clear_cancel, dp(38));
+        LinearLayout.LayoutParams closeParams = (LinearLayout.LayoutParams) closeBtn.getLayoutParams();
+        closeParams.setMargins(dp(12), 0, 0, 0);
+        closeBtn.setLayoutParams(closeParams);
+        closeBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finishWith("close", -1);
+            }
+        });
+        mTopBar.addView(closeBtn);
 
         mOverlay.addView(mTopBar);
     }
@@ -461,6 +469,9 @@ public class PlayerActivity extends Activity {
         mNextBtn.setVisibility(mHasNext ? View.VISIBLE : View.GONE);
         addSpaced(mCenterBar, mNextBtn);
 
+        // Nothing to pause, rewind or skip on a live channel, and channels are
+        // switched from the side list instead.
+        mCenterBar.setVisibility(mIsLive ? View.GONE : View.VISIBLE);
         mOverlay.addView(mCenterBar);
     }
 
@@ -489,28 +500,47 @@ public class PlayerActivity extends Activity {
                 row = new LinearLayout(PlayerActivity.this);
                 row.setOrientation(LinearLayout.HORIZONTAL);
                 row.setGravity(Gravity.CENTER_VERTICAL);
-                row.setPadding(dp(12), dp(9), dp(12), dp(9));
+                row.setPadding(dp(12), dp(8), dp(12), dp(8));
 
                 View marker = new View(PlayerActivity.this);
-                marker.setLayoutParams(new LinearLayout.LayoutParams(dp(3), dp(22)));
+                marker.setLayoutParams(new LinearLayout.LayoutParams(dp(3), dp(30)));
                 row.addView(marker);
 
-                TextView label = new TextView(PlayerActivity.this);
-                LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+                LinearLayout column = new LinearLayout(PlayerActivity.this);
+                column.setOrientation(LinearLayout.VERTICAL);
+                LinearLayout.LayoutParams columnParams = new LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                labelParams.setMargins(dp(10), 0, 0, 0);
-                label.setLayoutParams(labelParams);
+                columnParams.setMargins(dp(10), 0, 0, 0);
+                column.setLayoutParams(columnParams);
+
+                TextView label = new TextView(PlayerActivity.this);
                 label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
                 label.setSingleLine(true);
                 label.setEllipsize(TextUtils.TruncateAt.END);
-                row.addView(label);
+                column.addView(label);
+
+                // What's on right now, when the app knows it.
+                TextView now = new TextView(PlayerActivity.this);
+                now.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+                now.setSingleLine(true);
+                now.setEllipsize(TextUtils.TruncateAt.END);
+                column.addView(now);
+
+                row.addView(column);
             }
 
             boolean current = position == mPlaylistIndex;
             row.getChildAt(0).setBackgroundColor(current ? ACCENT : Color.TRANSPARENT);
-            TextView label = (TextView) row.getChildAt(1);
+            LinearLayout column = (LinearLayout) row.getChildAt(1);
+            TextView label = (TextView) column.getChildAt(0);
             label.setText(mPlaylist.get(position));
             label.setTextColor(current ? Color.WHITE : Color.argb(180, 255, 255, 255));
+
+            TextView now = (TextView) column.getChildAt(1);
+            String program = position < mPlaylistSubtitles.size() ? mPlaylistSubtitles.get(position) : "";
+            now.setText(program);
+            now.setTextColor(current ? ACCENT : Color.argb(120, 255, 255, 255));
+            now.setVisibility(program.isEmpty() ? View.GONE : View.VISIBLE);
             return row;
         }
     }
@@ -592,8 +622,7 @@ public class PlayerActivity extends Activity {
         if (live == mIsLive) return;
         mIsLive = live;
         mLiveBadge.setVisibility(View.VISIBLE);
-        mRewBtn.setVisibility(View.GONE);
-        mFfBtn.setVisibility(View.GONE);
+        mCenterBar.setVisibility(View.GONE);
         mBottomBar.setVisibility(View.GONE);
     }
 
@@ -649,7 +678,7 @@ public class PlayerActivity extends Activity {
         mControlsVisible = visible;
         int visibility = visible ? View.VISIBLE : View.GONE;
         mTopBar.setVisibility(visibility);
-        mCenterBar.setVisibility(visibility);
+        mCenterBar.setVisibility(mIsLive ? View.GONE : visibility);
         mBottomBar.setVisibility(mIsLive ? View.GONE : visibility);
         if (mPanel != null) mPanel.setVisibility(visibility);
         mOverlay.setBackgroundColor(visible ? SCRIM : Color.TRANSPARENT);

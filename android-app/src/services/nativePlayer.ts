@@ -11,6 +11,8 @@ export interface NativePlayerOptions {
     hasPrev?: boolean;
     /** Labels shown in the side list, already in playback order. */
     playlist?: string[];
+    /** Second line per item, e.g. the programme on air. Same order as `playlist`. */
+    playlistSubtitles?: string[];
     /** Index of the item playing, relative to `playlist`. */
     playlistIndex?: number;
     /** Index of `playlist[0]` in the full list, so results map back. */
@@ -43,14 +45,15 @@ export const isNativePlayerAvailable = () =>
  * Trim a long list down to a window centred on the item playing, keeping the
  * offset needed to translate the selected index back to the full list.
  */
-export const windowPlaylist = (labels: string[], index: number) => {
+export const windowPlaylist = (labels: string[], index: number, subtitles: string[] = []) => {
     if (labels.length <= MAX_PLAYLIST_ITEMS) {
-        return { playlist: labels, playlistIndex: index, playlistOffset: 0 };
+        return { playlist: labels, playlistSubtitles: subtitles, playlistIndex: index, playlistOffset: 0 };
     }
     const half = Math.floor(MAX_PLAYLIST_ITEMS / 2);
     const start = Math.min(Math.max(0, index - half), labels.length - MAX_PLAYLIST_ITEMS);
     return {
         playlist: labels.slice(start, start + MAX_PLAYLIST_ITEMS),
+        playlistSubtitles: subtitles.slice(start, start + MAX_PLAYLIST_ITEMS),
         playlistIndex: index - start,
         playlistOffset: start,
     };
