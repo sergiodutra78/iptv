@@ -32,14 +32,43 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
 
     const controlsTimeout = useRef<any>(null);
     const lastProgressSave = useRef<number>(0);
+    const triedNativeFallback = useRef(false);
 
     const isLive = type === 'live';
     const isMovie = type === 'movie';
+
+    // Some streams use containers/codecs the WebView's <video> and hls.js can't
+    // decode (e.g. MKV/TS with certain audio tracks) but the native Android
+    // player handles fine. Fall back to it instead of just showing an error.
+    const playNative = (streamUrl: string) => {
+        const plugins = (window as any).plugins;
+        if (!plugins?.streamingMedia || triedNativeFallback.current) return false;
+        triedNativeFallback.current = true;
+        videoRef.current?.pause();
+        if (videoRef.current) videoRef.current.src = '';
+        setHasError(false);
+        console.log("Falling back to native player for", streamUrl);
+        const options = {
+            successCallback: () => { console.log('Native player closed'); onClose?.(); },
+            errorCallback: (e: any) => {
+                console.error('Native Player Error', e);
+                setHasError(true);
+                setErrorDetails(`Native Player Error: ${e || 'Error desconocido'}`);
+            },
+            orientation: 'landscape',
+            shouldAutoClose: true,
+            shouldAutoPlay: true,
+            controls: true
+        };
+        plugins.streamingMedia.playVideo(streamUrl, options);
+        return true;
+    };
 
     useEffect(() => {
         if (!videoRef.current) return;
 
         setHasError(false);
+        triedNativeFallback.current = false;
         videoRef.current.src = '';
 
         let streamUrl = url;
@@ -74,6 +103,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
             hls.on(Hls.Events.ERROR, (_, data) => {
                 if (data.fatal) {
                     console.error("HLS Fatal Error", data);
+                    if (playNative(streamUrl)) return;
                     setHasError(true);
                     setErrorDetails(`HLS Fatal: ${data.type} - ${data.details}`);
                 }
@@ -94,6 +124,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
             }
             videoRef.current.play().catch(e => {
                 console.error("Manual play error", e);
+                if (playNative(streamUrl)) return;
                 setHasError(true);
                 setErrorDetails(`Manual Play Error: ${e.message || "Unknown"}`);
             });
@@ -230,6 +261,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
                 className="w-full h-full cursor-pointer"
                 onClick={togglePlay}
                 onError={() => {
+                    if (triedNativeFallback.current) return;
+                    if (playNative(url)) return;
                     setHasError(true);
                     const video = videoRef.current;
                     const err = video?.error;
