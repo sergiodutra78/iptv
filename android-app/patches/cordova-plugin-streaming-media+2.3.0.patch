@@ -1,60 +1,125 @@
 diff --git a/node_modules/cordova-plugin-streaming-media/src/android/com/hutchind/cordova/plugins/streamingmedia/SimpleVideoStream.java b/node_modules/cordova-plugin-streaming-media/src/android/com/hutchind/cordova/plugins/streamingmedia/SimpleVideoStream.java
-index 463a747..84653ca 100644
+index 463a747..423abd4 100644
 --- a/node_modules/cordova-plugin-streaming-media/src/android/com/hutchind/cordova/plugins/streamingmedia/SimpleVideoStream.java
 +++ b/node_modules/cordova-plugin-streaming-media/src/android/com/hutchind/cordova/plugins/streamingmedia/SimpleVideoStream.java
-@@ -8,14 +8,19 @@ import android.media.MediaPlayer;
- import android.widget.MediaController;
- import android.content.Intent;
- import android.content.pm.ActivityInfo;
-+import android.os.Build;
- import android.view.MotionEvent;
+@@ -1,24 +1,32 @@
+ package com.hutchind.cordova.plugins.streamingmedia;
+ 
+ import android.app.Activity;
++import android.content.Intent;
++import android.content.pm.ActivityInfo;
++import android.content.res.ColorStateList;
+ import android.content.res.Configuration;
+ import android.graphics.Color;
+-import android.graphics.Point;
+ import android.media.MediaPlayer;
+-import android.widget.MediaController;
+-import android.content.Intent;
+-import android.content.pm.ActivityInfo;
+-import android.view.MotionEvent;
  import android.net.Uri;
++import android.os.Build;
  import android.os.Bundle;
++import android.os.Handler;
++import android.os.Looper;
++import android.text.TextUtils;
  import android.util.Log;
+-import android.view.Display;
 +import android.util.TypedValue;
- import android.view.Display;
++import android.view.Gravity;
  import android.view.View;
  import android.view.Window;
 +import android.view.WindowInsets;
 +import android.view.WindowInsetsController;
  import android.view.WindowManager;
-+import android.widget.Button;
- import android.widget.MediaController;
+-import android.widget.MediaController;
++import android.widget.ImageButton;
++import android.widget.LinearLayout;
  import android.widget.ProgressBar;
  import android.widget.RelativeLayout;
-@@ -29,6 +34,7 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
++import android.widget.SeekBar;
++import android.widget.TextView;
+ import android.widget.VideoView;
+ 
+ public class SimpleVideoStream extends Activity implements
+@@ -27,22 +35,71 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+ 	private String TAG = getClass().getSimpleName();
+ 	private VideoView mVideoView = null;
  	private MediaPlayer mMediaPlayer = null;
- 	private MediaController mMediaController = null;
+-	private MediaController mMediaController = null;
  	private ProgressBar mProgressBar = null;
-+	private Button mCloseButton = null;
  	private String mVideoUrl;
++	private String mTitle = "";
  	private Boolean mShouldAutoClose = true;
  	private boolean mControls;
-@@ -63,13 +69,46 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
++	private boolean mHasNext = false;
++	private boolean mHasPrev = false;
++
++	private RelativeLayout mOverlay;
++	private LinearLayout mTopBar;
++	private LinearLayout mCenterBar;
++	private LinearLayout mBottomBar;
++	private ImageButton mCloseBtn;
++	private ImageButton mPrevBtn;
++	private ImageButton mRewBtn;
++	private ImageButton mPlayPauseBtn;
++	private ImageButton mFfBtn;
++	private ImageButton mNextBtn;
++	private TextView mTitleText;
++	private TextView mCurrentTimeText;
++	private TextView mTotalTimeText;
++	private TextView mLiveBadge;
++	private SeekBar mSeekBar;
++
++	private boolean mControlsVisible = true;
++	private boolean mIsLive = false;
++	private boolean mUserSeeking = false;
++	private final Handler mHandler = new Handler(Looper.getMainLooper());
++
++	private static final int HIDE_DELAY_MS = 4000;
++	private static final int SKIP_MS = 10000;
++	private static final int ACCENT = Color.rgb(229, 9, 20);
++	private static final int SCRIM = Color.argb(110, 0, 0, 0);
++
++	private final Runnable mHideRunnable = new Runnable() {
++		@Override
++		public void run() {
++			setControlsVisible(false);
++		}
++	};
++
++	private final Runnable mProgressRunnable = new Runnable() {
++		@Override
++		public void run() {
++			updateProgress();
++			mHandler.postDelayed(this, 500);
++		}
++	};
+ 
+ 	@Override
+ 	protected void onCreate(Bundle savedInstanceState) {
+ 		super.onCreate(savedInstanceState);
+ 		this.requestWindowFeature(Window.FEATURE_NO_TITLE);
+ 		this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
++		this.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+ 
+ 		Bundle b = getIntent().getExtras();
+ 		mVideoUrl = b.getString("mediaUrl");
+ 		mShouldAutoClose = b.getBoolean("shouldAutoClose", true);
+ 		mControls = b.getBoolean("controls", true);
++		mHasNext = b.getBoolean("hasNext", false);
++		mHasPrev = b.getBoolean("hasPrev", false);
++		if (b.getString("title") != null) {
++			mTitle = b.getString("title");
++		}
+ 
+ 		RelativeLayout relLayout = new RelativeLayout(this);
+ 		relLayout.setBackgroundColor(Color.BLACK);
+@@ -63,13 +120,284 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
  		relLayout.addView(mProgressBar);
  		mProgressBar.bringToFront();
  
-+		// Close button, so there is a visible way out besides the back gesture
-+		mCloseButton = new Button(this);
-+		mCloseButton.setText("✕");
-+		mCloseButton.setTextColor(Color.WHITE);
-+		mCloseButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-+		mCloseButton.setAllCaps(false);
-+		mCloseButton.setPadding(0, 0, 0, 0);
-+		mCloseButton.setBackgroundColor(Color.argb(150, 0, 0, 0));
-+		RelativeLayout.LayoutParams closeParams = new RelativeLayout.LayoutParams(dpToPx(44), dpToPx(44));
-+		closeParams.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-+		closeParams.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-+		closeParams.setMargins(0, dpToPx(20), dpToPx(20), 0);
-+		mCloseButton.setLayoutParams(closeParams);
-+		mCloseButton.setOnClickListener(new View.OnClickListener() {
-+			@Override
-+			public void onClick(View v) {
-+				wrapItUp(RESULT_OK, null);
-+			}
-+		});
-+		relLayout.addView(mCloseButton);
-+		mCloseButton.bringToFront();
++		buildControlsOverlay(relLayout);
 +
  		setOrientation(b.getString("orientation"));
  
@@ -66,18 +131,288 @@ index 463a747..84653ca 100644
  		play();
  	}
  
-+	@Override
-+	public void onWindowFocusChanged(boolean hasFocus) {
-+		super.onWindowFocusChanged(hasFocus);
-+		if (hasFocus) {
-+			hideSystemBars();
++	private void buildControlsOverlay(RelativeLayout root) {
++		mOverlay = new RelativeLayout(this);
++		RelativeLayout.LayoutParams overlayParams = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
++		mOverlay.setLayoutParams(overlayParams);
++		mOverlay.setBackgroundColor(SCRIM);
++		mOverlay.setOnClickListener(new View.OnClickListener() {
++			@Override
++			public void onClick(View v) {
++				if (!mControls) return;
++				setControlsVisible(!mControlsVisible);
++			}
++		});
++
++		// ---- Top bar: close + title ----
++		mTopBar = new LinearLayout(this);
++		mTopBar.setOrientation(LinearLayout.HORIZONTAL);
++		mTopBar.setGravity(Gravity.CENTER_VERTICAL);
++		RelativeLayout.LayoutParams topParams = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
++		topParams.addRule(RelativeLayout.ALIGN_PARENT_TOP);
++		topParams.setMargins(dpToPx(14), dpToPx(14), dpToPx(14), 0);
++		mTopBar.setLayoutParams(topParams);
++
++		mCloseBtn = makeIconButton(android.R.drawable.ic_menu_close_clear_cancel, dpToPx(38));
++		mCloseBtn.setOnClickListener(new View.OnClickListener() {
++			@Override
++			public void onClick(View v) {
++				wrapItUp(RESULT_OK, "close");
++			}
++		});
++		mTopBar.addView(mCloseBtn);
++
++		mTitleText = new TextView(this);
++		mTitleText.setText(mTitle);
++		mTitleText.setTextColor(Color.WHITE);
++		mTitleText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
++		mTitleText.setSingleLine(true);
++		mTitleText.setEllipsize(TextUtils.TruncateAt.END);
++		LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
++		titleParams.setMargins(dpToPx(10), 0, 0, 0);
++		mTitleText.setLayoutParams(titleParams);
++		mTopBar.addView(mTitleText);
++
++		mLiveBadge = new TextView(this);
++		mLiveBadge.setText("EN VIVO");
++		mLiveBadge.setTextColor(Color.WHITE);
++		mLiveBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
++		mLiveBadge.setBackgroundColor(ACCENT);
++		mLiveBadge.setPadding(dpToPx(8), dpToPx(3), dpToPx(8), dpToPx(3));
++		mLiveBadge.setVisibility(View.GONE);
++		mTopBar.addView(mLiveBadge);
++
++		mOverlay.addView(mTopBar);
++
++		// ---- Center bar: prev / -10s / play-pause / +10s / next ----
++		mCenterBar = new LinearLayout(this);
++		mCenterBar.setOrientation(LinearLayout.HORIZONTAL);
++		mCenterBar.setGravity(Gravity.CENTER);
++		RelativeLayout.LayoutParams centerParams = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
++		centerParams.addRule(RelativeLayout.CENTER_IN_PARENT);
++		mCenterBar.setLayoutParams(centerParams);
++
++		mPrevBtn = makeIconButton(android.R.drawable.ic_media_previous, dpToPx(42));
++		mPrevBtn.setOnClickListener(new View.OnClickListener() {
++			@Override
++			public void onClick(View v) {
++				wrapItUp(RESULT_OK, "prev");
++			}
++		});
++		mPrevBtn.setVisibility(mHasPrev ? View.VISIBLE : View.GONE);
++		addWithMargin(mCenterBar, mPrevBtn, dpToPx(14));
++
++		mRewBtn = makeIconButton(android.R.drawable.ic_media_rew, dpToPx(42));
++		mRewBtn.setOnClickListener(new View.OnClickListener() {
++			@Override
++			public void onClick(View v) {
++				seekBy(-SKIP_MS);
++			}
++		});
++		addWithMargin(mCenterBar, mRewBtn, dpToPx(14));
++
++		mPlayPauseBtn = makeIconButton(android.R.drawable.ic_media_pause, dpToPx(58));
++		mPlayPauseBtn.setOnClickListener(new View.OnClickListener() {
++			@Override
++			public void onClick(View v) {
++				togglePlayback();
++			}
++		});
++		addWithMargin(mCenterBar, mPlayPauseBtn, dpToPx(14));
++
++		mFfBtn = makeIconButton(android.R.drawable.ic_media_ff, dpToPx(42));
++		mFfBtn.setOnClickListener(new View.OnClickListener() {
++			@Override
++			public void onClick(View v) {
++				seekBy(SKIP_MS);
++			}
++		});
++		addWithMargin(mCenterBar, mFfBtn, dpToPx(14));
++
++		mNextBtn = makeIconButton(android.R.drawable.ic_media_next, dpToPx(42));
++		mNextBtn.setOnClickListener(new View.OnClickListener() {
++			@Override
++			public void onClick(View v) {
++				wrapItUp(RESULT_OK, "next");
++			}
++		});
++		mNextBtn.setVisibility(mHasNext ? View.VISIBLE : View.GONE);
++		addWithMargin(mCenterBar, mNextBtn, dpToPx(14));
++
++		mOverlay.addView(mCenterBar);
++
++		// ---- Bottom bar: seek bar + times ----
++		mBottomBar = new LinearLayout(this);
++		mBottomBar.setOrientation(LinearLayout.VERTICAL);
++		RelativeLayout.LayoutParams bottomParams = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
++		bottomParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
++		bottomParams.setMargins(dpToPx(16), 0, dpToPx(16), dpToPx(16));
++		mBottomBar.setLayoutParams(bottomParams);
++
++		mSeekBar = new SeekBar(this);
++		mSeekBar.setProgressTintList(ColorStateList.valueOf(ACCENT));
++		mSeekBar.setThumbTintList(ColorStateList.valueOf(ACCENT));
++		mSeekBar.setProgressBackgroundTintList(ColorStateList.valueOf(Color.argb(140, 255, 255, 255)));
++		mSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
++			@Override
++			public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
++				if (fromUser) {
++					mCurrentTimeText.setText(formatTime(progress));
++				}
++			}
++
++			@Override
++			public void onStartTrackingTouch(SeekBar seekBar) {
++				mUserSeeking = true;
++				mHandler.removeCallbacks(mHideRunnable);
++			}
++
++			@Override
++			public void onStopTrackingTouch(SeekBar seekBar) {
++				mUserSeeking = false;
++				if (mVideoView != null) {
++					mVideoView.seekTo(seekBar.getProgress());
++				}
++				scheduleHide();
++			}
++		});
++		mBottomBar.addView(mSeekBar);
++
++		LinearLayout timesRow = new LinearLayout(this);
++		timesRow.setOrientation(LinearLayout.HORIZONTAL);
++
++		mCurrentTimeText = new TextView(this);
++		mCurrentTimeText.setText("0:00");
++		mCurrentTimeText.setTextColor(Color.WHITE);
++		mCurrentTimeText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
++		timesRow.addView(mCurrentTimeText);
++
++		View spacer = new View(this);
++		spacer.setLayoutParams(new LinearLayout.LayoutParams(0, 1, 1f));
++		timesRow.addView(spacer);
++
++		mTotalTimeText = new TextView(this);
++		mTotalTimeText.setText("0:00");
++		mTotalTimeText.setTextColor(Color.WHITE);
++		mTotalTimeText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
++		timesRow.addView(mTotalTimeText);
++
++		mBottomBar.addView(timesRow);
++		mOverlay.addView(mBottomBar);
++
++		root.addView(mOverlay);
++		mOverlay.bringToFront();
++
++		if (!mControls) {
++			mTopBar.setVisibility(View.GONE);
++			mCenterBar.setVisibility(View.GONE);
++			mBottomBar.setVisibility(View.GONE);
++			mOverlay.setBackgroundColor(Color.TRANSPARENT);
 +		}
++	}
++
++	private void addWithMargin(LinearLayout parent, View child, int margin) {
++		LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) child.getLayoutParams();
++		lp.setMargins(margin, 0, margin, 0);
++		child.setLayoutParams(lp);
++		parent.addView(child);
++	}
++
++	private ImageButton makeIconButton(int drawableRes, int size) {
++		ImageButton button = new ImageButton(this);
++		button.setImageResource(drawableRes);
++		button.setColorFilter(Color.WHITE);
++		button.setBackgroundColor(Color.TRANSPARENT);
++		button.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
++		button.setPadding(dpToPx(6), dpToPx(6), dpToPx(6), dpToPx(6));
++		button.setLayoutParams(new LinearLayout.LayoutParams(size, size));
++		return button;
++	}
++
++	private void setControlsVisible(boolean visible) {
++		if (!mControls) return;
++		mControlsVisible = visible;
++		int visibility = visible ? View.VISIBLE : View.GONE;
++		mTopBar.setVisibility(visibility);
++		mCenterBar.setVisibility(visibility);
++		mBottomBar.setVisibility(mIsLive ? View.GONE : visibility);
++		mOverlay.setBackgroundColor(visible ? SCRIM : Color.TRANSPARENT);
++		if (visible) {
++			scheduleHide();
++		} else {
++			mHandler.removeCallbacks(mHideRunnable);
++		}
++	}
++
++	private void scheduleHide() {
++		mHandler.removeCallbacks(mHideRunnable);
++		mHandler.postDelayed(mHideRunnable, HIDE_DELAY_MS);
++	}
++
++	private void togglePlayback() {
++		if (mVideoView == null) return;
++		if (mVideoView.isPlaying()) {
++			mVideoView.pause();
++			mPlayPauseBtn.setImageResource(android.R.drawable.ic_media_play);
++			mHandler.removeCallbacks(mHideRunnable);
++		} else {
++			mVideoView.start();
++			mPlayPauseBtn.setImageResource(android.R.drawable.ic_media_pause);
++			scheduleHide();
++		}
++	}
++
++	private void seekBy(int deltaMs) {
++		if (mVideoView == null || mIsLive) return;
++		int target = mVideoView.getCurrentPosition() + deltaMs;
++		if (target < 0) target = 0;
++		int duration = mVideoView.getDuration();
++		if (duration > 0 && target > duration) target = duration;
++		mVideoView.seekTo(target);
++		updateProgress();
++		scheduleHide();
++	}
++
++	private void updateProgress() {
++		if (mVideoView == null || mIsLive) return;
++		int duration = mVideoView.getDuration();
++		if (duration <= 0) return;
++		int position = mVideoView.getCurrentPosition();
++		if (!mUserSeeking) {
++			mSeekBar.setMax(duration);
++			mSeekBar.setProgress(position);
++			mCurrentTimeText.setText(formatTime(position));
++		}
++		mTotalTimeText.setText(formatTime(duration));
++	}
++
++	private String formatTime(int millis) {
++		int totalSeconds = millis / 1000;
++		int seconds = totalSeconds % 60;
++		int minutes = (totalSeconds / 60) % 60;
++		int hours = totalSeconds / 3600;
++		if (hours > 0) {
++			return String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes, seconds);
++		}
++		return String.format(java.util.Locale.US, "%d:%02d", minutes, seconds);
 +	}
 +
  	private void play() {
  		mProgressBar.setVisibility(View.VISIBLE);
  		Uri videoUri = Uri.parse(mVideoUrl);
-@@ -90,6 +129,31 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+@@ -78,18 +406,44 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+ 			mVideoView.setOnPreparedListener(this);
+ 			mVideoView.setOnErrorListener(this);
+ 			mVideoView.setVideoURI(videoUri);
+-			mMediaController = new MediaController(this);
+-			mMediaController.setAnchorView(mVideoView);
+-			mMediaController.setMediaPlayer(mVideoView);
+-			if (!mControls) {
+-				mMediaController.setVisibility(View.GONE);
+-			}
+-			mVideoView.setMediaController(mMediaController);
+ 		} catch (Throwable t) {
+ 			Log.d(TAG, t.toString());
  		}
  	}
  
@@ -106,6 +441,97 @@ index 463a747..84653ca 100644
 +		}
 +	}
 +
++	@Override
++	public void onWindowFocusChanged(boolean hasFocus) {
++		super.onWindowFocusChanged(hasFocus);
++		if (hasFocus) {
++			hideSystemBars();
++		}
++	}
++
  	private void setOrientation(String orientation) {
  		if ("landscape".equals(orientation)) {
  			this.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+@@ -118,9 +472,20 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+ 		Log.d(TAG, "Stream is prepared");
+ 		mMediaPlayer = mp;
+ 		mMediaPlayer.setOnBufferingUpdateListener(this);
++		mIsLive = mVideoView.getDuration() <= 0;
++		if (mIsLive) {
++			mLiveBadge.setVisibility(View.VISIBLE);
++			mBottomBar.setVisibility(View.GONE);
++			mRewBtn.setVisibility(View.GONE);
++			mFfBtn.setVisibility(View.GONE);
++		}
+ 		mVideoView.requestFocus();
+ 		mVideoView.start();
++		mPlayPauseBtn.setImageResource(android.R.drawable.ic_media_pause);
+ 		mVideoView.postDelayed(checkIfPlaying, 0);
++		mHandler.removeCallbacks(mProgressRunnable);
++		mHandler.post(mProgressRunnable);
++		setControlsVisible(true);
+ 	}
+ 
+ 	private void pause() {
+@@ -137,6 +502,8 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+ 	public void onDestroy() {
+ 		super.onDestroy();
+ 		Log.d(TAG, "onDestroy triggered.");
++		mHandler.removeCallbacks(mHideRunnable);
++		mHandler.removeCallbacks(mProgressRunnable);
+ 		stop();
+ 	}
+ 
+@@ -152,7 +519,7 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+ 		Log.d(TAG, "onCompletion triggered.");
+ 		stop();
+ 		if (mShouldAutoClose) {
+-			wrapItUp(RESULT_OK, null);
++			wrapItUp(RESULT_OK, "ended");
+ 		}
+ 	}
+ 
+@@ -189,7 +556,7 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+ 	@Override
+ 	public void onBackPressed() {
+ 		// If we're leaving, let's finish the activity
+-		wrapItUp(RESULT_OK, null);
++		wrapItUp(RESULT_OK, "close");
+ 	}
+ 
+ 	@Override
+@@ -197,11 +564,4 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+ 		// The screen size changed or the orientation changed... don't restart the activity
+ 		super.onConfigurationChanged(newConfig);
+ 	}
+-
+-	@Override
+-	public boolean onTouchEvent(MotionEvent event) {
+-		if (mMediaController != null)
+-			mMediaController.show();
+-		return false;
+-	}
+ }
+diff --git a/node_modules/cordova-plugin-streaming-media/src/android/com/hutchind/cordova/plugins/streamingmedia/StreamingMedia.java b/node_modules/cordova-plugin-streaming-media/src/android/com/hutchind/cordova/plugins/streamingmedia/StreamingMedia.java
+index f0c27d8..b15feb0 100644
+--- a/node_modules/cordova-plugin-streaming-media/src/android/com/hutchind/cordova/plugins/streamingmedia/StreamingMedia.java
++++ b/node_modules/cordova-plugin-streaming-media/src/android/com/hutchind/cordova/plugins/streamingmedia/StreamingMedia.java
+@@ -95,7 +95,17 @@ public class StreamingMedia extends CordovaPlugin {
+ 		super.onActivityResult(requestCode, resultCode, intent);
+ 		if (ACTIVITY_CODE_PLAY_MEDIA == requestCode) {
+ 			if (Activity.RESULT_OK == resultCode) {
+-				this.callbackContext.success();
++				// Report why playback ended (close / next / prev / ended) so the
++				// app can act on it, e.g. play the next item.
++				String reason = null;
++				if (intent != null && intent.hasExtra("message")) {
++					reason = intent.getStringExtra("message");
++				}
++				if (reason != null) {
++					this.callbackContext.success(reason);
++				} else {
++					this.callbackContext.success();
++				}
+ 			} else if (Activity.RESULT_CANCELED == resultCode) {
+ 				String errMsg = "Error";
+ 				if (intent != null && intent.hasExtra("message")) {

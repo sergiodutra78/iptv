@@ -160,6 +160,10 @@ const Movies = () => {
     }, [selectedMovie, isPlaying]);
 
     if (isPlaying && selectedMovie) {
+        const currentIndex = filteredMovies.findIndex(m => m.url === selectedMovie.url);
+        const hasNext = currentIndex > -1 && currentIndex < filteredMovies.length - 1;
+        const hasPrev = currentIndex > 0;
+
         return (
             <div className="fixed inset-0 z-50 bg-black">
                 <VideoPlayer
@@ -167,6 +171,8 @@ const Movies = () => {
                     title={selectedMovie.name}
                     type={selectedMovie.type}
                     onClose={() => setIsPlaying(false)}
+                    onNext={hasNext ? () => setSelectedMovie(filteredMovies[currentIndex + 1]) : undefined}
+                    onPrev={hasPrev ? () => setSelectedMovie(filteredMovies[currentIndex - 1]) : undefined}
                 />
             </div>
         );

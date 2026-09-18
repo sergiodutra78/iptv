@@ -49,12 +49,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
         setHasError(false);
         console.log("Falling back to native player for", streamUrl);
         const options = {
-            successCallback: () => { console.log('Native player closed'); onClose?.(); },
+            successCallback: (reason?: string) => {
+                console.log('Native player closed:', reason);
+                if (reason === 'next' && onNext) { onNext(); return; }
+                if (reason === 'prev' && onPrev) { onPrev(); return; }
+                onClose?.();
+            },
             errorCallback: (e: any) => {
                 console.error('Native Player Error', e);
                 setHasError(true);
                 setErrorDetails(`Native Player Error: ${e || 'Error desconocido'}`);
             },
+            title: title || '',
+            hasNext: !!onNext,
+            hasPrev: !!onPrev,
             orientation: 'landscape',
             shouldAutoClose: true,
             shouldAutoPlay: true,
