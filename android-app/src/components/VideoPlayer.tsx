@@ -4,6 +4,7 @@ import { Capacitor, SystemBars } from '@capacitor/core';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, List, RotateCcw, RotateCw, Calendar } from 'lucide-react';
 import { WatchProgressService } from '../services/WatchProgressService';
 import { BackHandlerStack } from '../services/backHandlerStack';
+import NativePlayer, { isNativePlayerAvailable, windowPlaylist } from '../services/nativePlayer';
 
 interface VideoPlayerProps {
     url: string;
@@ -15,9 +16,16 @@ interface VideoPlayerProps {
     onPrev?: () => void;
     onToggleChannelList?: () => void;
     onToggleEPG?: () => void;
+    /** Labels for the side list shown over the video (episodes, channels...). */
+    playlist?: string[];
+    /** Index of what's playing inside `playlist`. */
+    playlistIndex?: number;
+    /** Heading above the side list. */
+    panelTitle?: string;
+    onSelectIndex?: (index: number) => void;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 'live', onClose, onNext, onPrev, onToggleChannelList, onToggleEPG }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 'live', onClose, onNext, onPrev, onToggleChannelList, onToggleEPG, playlist, playlistIndex = -1, panelTitle, onSelectIndex }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(true);
@@ -37,40 +45,56 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
     const isLive = type === 'live';
     const isMovie = type === 'movie';
 
-    // Some streams use containers/codecs the WebView's <video> and hls.js can't
-    // decode (e.g. MKV/TS with certain audio tracks) but the native Android
-    // player handles fine. Fall back to it instead of just showing an error.
+    // Keep the callbacks/labels the native player needs reachable from the
+    // promise it resolves long after this render.
+    const latest = useRef({ title, subtitle, panelTitle, playlist, playlistIndex, onClose, onNext, onPrev, onSelectIndex });
+    latest.current = { title, subtitle, panelTitle, playlist, playlistIndex, onClose, onNext, onPrev, onSelectIndex };
+
+    // The provider serves movies/series as MKV and live channels as MPEG-TS,
+    // which the WebView's <video> and hls.js cannot decode. On device playback
+    // always goes through the ExoPlayer-backed native player, which also keeps
+    // one identical control bar across live, movies and series.
     const playNative = (streamUrl: string) => {
-        const plugins = (window as any).plugins;
-        if (!plugins?.streamingMedia || triedNativeFallback.current) return false;
+        if (!isNativePlayerAvailable() || triedNativeFallback.current) return false;
         triedNativeFallback.current = true;
         videoRef.current?.pause();
         if (videoRef.current) videoRef.current.src = '';
         setHasError(false);
-        console.log("Falling back to native player for", streamUrl);
-        const options = {
-            successCallback: (reason?: string) => {
-                console.log('Native player closed:', reason);
-                if (reason === 'next' && onNext) { onNext(); return; }
-                if (reason === 'prev' && onPrev) { onPrev(); return; }
-                onClose?.();
-            },
-            errorCallback: (e: any) => {
-                console.error('Native Player Error', e);
-                setHasError(true);
-                setErrorDetails(`Native Player Error: ${e || 'Error desconocido'}`);
-            },
-            title: title || '',
-            subtitle: subtitle || '',
+
+        const props = latest.current;
+        const labels = props.playlist || [];
+        const listWindow = labels.length
+            ? windowPlaylist(labels, props.playlistIndex ?? -1)
+            : { playlist: [], playlistIndex: -1, playlistOffset: 0 };
+        const saved = type !== 'live' ? WatchProgressService.get(streamUrl) : null;
+
+        NativePlayer.play({
+            url: streamUrl,
+            title: props.title || '',
+            subtitle: props.subtitle || '',
+            panelTitle: props.panelTitle || '',
             isLive: type === 'live',
-            hasNext: !!onNext,
-            hasPrev: !!onPrev,
-            orientation: 'landscape',
-            shouldAutoClose: true,
-            shouldAutoPlay: true,
-            controls: true
-        };
-        plugins.streamingMedia.playVideo(streamUrl, options);
+            hasNext: !!props.onNext,
+            hasPrev: !!props.onPrev,
+            startPositionMs: saved && saved.position > 30 ? Math.floor(saved.position * 1000) : 0,
+            ...listWindow,
+        }).then(result => {
+            const handlers = latest.current;
+            if (type !== 'live' && result.positionMs > 0 && result.durationMs > 0) {
+                WatchProgressService.save(streamUrl, result.positionMs / 1000, result.durationMs / 1000);
+            }
+            if (result.reason === 'index' && result.index >= 0 && handlers.onSelectIndex) {
+                handlers.onSelectIndex(result.index);
+                return;
+            }
+            if (result.reason === 'next' && handlers.onNext) { handlers.onNext(); return; }
+            if (result.reason === 'prev' && handlers.onPrev) { handlers.onPrev(); return; }
+            handlers.onClose?.();
+        }).catch((e: any) => {
+            console.error('Native Player Error', e);
+            setHasError(true);
+            setErrorDetails(`Native Player Error: ${e?.message || e || 'Error desconocido'}`);
+        });
         return true;
     };
 

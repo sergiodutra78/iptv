@@ -173,6 +173,12 @@ const Movies = () => {
                     onClose={() => setIsPlaying(false)}
                     onNext={hasNext ? () => setSelectedMovie(filteredMovies[currentIndex + 1]) : undefined}
                     onPrev={hasPrev ? () => setSelectedMovie(filteredMovies[currentIndex - 1]) : undefined}
+                    panelTitle="Películas"
+                    playlist={filteredMovies.map(m => m.name)}
+                    playlistIndex={currentIndex}
+                    onSelectIndex={(index) => {
+                        if (filteredMovies[index]) setSelectedMovie(filteredMovies[index]);
+                    }}
                 />
             </div>
         );

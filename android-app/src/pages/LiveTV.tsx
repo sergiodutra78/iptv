@@ -149,6 +149,12 @@ const ChannelPlayerOverlay = ({
                 onPrev={onPrev}
                 onToggleChannelList={() => { setShowChannelList(!showChannelList); setShowEPGGrid(false); }}
                 onToggleEPG={() => { setShowEPGGrid(!showEPGGrid); setShowChannelList(false); }}
+                panelTitle="Canales"
+                playlist={filteredChannels.map(c => c.name)}
+                playlistIndex={filteredChannels.findIndex(c => c.url === channel.url)}
+                onSelectIndex={(index) => {
+                    if (filteredChannels[index]) setSelectedChannel(filteredChannels[index]);
+                }}
             />
 
             {showEPGGrid && (

@@ -166,10 +166,17 @@ const Series = () => {
                 <VideoPlayer
                     url={selectedEpisode.url}
                     title={selectedEpisode.name}
+                    subtitle={selectedSeries?.name}
                     type={selectedEpisode.type}
                     onClose={() => setSelectedEpisode(null)}
                     onNext={currentIndex < episodes.length - 1 ? handleNextEpisode : undefined}
                     onPrev={currentIndex > 0 ? handlePrevEpisode : undefined}
+                    panelTitle="Capítulos"
+                    playlist={episodes.map(e => e.name)}
+                    playlistIndex={currentIndex}
+                    onSelectIndex={(index) => {
+                        if (episodes[index]) handlePlayEpisode(episodes[index]);
+                    }}
                 />
             </div>
         );

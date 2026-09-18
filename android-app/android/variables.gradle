@@ -13,4 +13,7 @@ ext {
     androidxJunitVersion = '1.3.0'
     androidxEspressoCoreVersion = '3.7.0'
     cordovaAndroidVersion = '14.0.1'
+    // ExoPlayer: the only player that decodes and seeks the MKV/TS streams
+    // the IPTV provider serves.
+    media3Version = '1.4.1'
 }
