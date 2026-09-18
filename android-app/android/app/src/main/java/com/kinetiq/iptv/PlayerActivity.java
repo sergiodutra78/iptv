@@ -73,10 +73,8 @@ public class PlayerActivity extends Activity {
     public static final String EXTRA_PLAYLIST_OFFSET = "playlistOffset";
     public static final String EXTRA_PANEL_TITLE = "panelTitle";
     public static final String EXTRA_START_POSITION = "startPositionMs";
-    public static final String EXTRA_EPG_NOW_TITLE = "epgNowTitle";
-    public static final String EXTRA_EPG_NOW_TIME = "epgNowTime";
-    public static final String EXTRA_EPG_NEXT_TITLE = "epgNextTitle";
-    public static final String EXTRA_EPG_NEXT_TIME = "epgNextTime";
+    public static final String EXTRA_EPG_TITLES = "epgTitles";
+    public static final String EXTRA_EPG_TIMES = "epgTimes";
 
     public static final String RESULT_REASON = "reason";
     public static final String RESULT_INDEX = "index";
@@ -107,7 +105,6 @@ public class PlayerActivity extends Activity {
     private ImageButton mFfBtn;
     private TextView mCurrentTimeText;
     private TextView mTotalTimeText;
-    private TextView mLiveBadge;
     private SeekBar mSeekBar;
 
     private String mUrl;
@@ -122,10 +119,8 @@ public class PlayerActivity extends Activity {
     private ArrayList<String> mPlaylistSubtitles = new ArrayList<>();
     private int mPlaylistIndex = -1;
     private int mPlaylistOffset = 0;
-    private String mEpgNowTitle = "";
-    private String mEpgNowTime = "";
-    private String mEpgNextTitle = "";
-    private String mEpgNextTime = "";
+    private ArrayList<String> mEpgTitles = new ArrayList<>();
+    private ArrayList<String> mEpgTimes = new ArrayList<>();
 
     private boolean mControlsVisible = true;
     private boolean mUserSeeking = false;
@@ -169,10 +164,10 @@ public class PlayerActivity extends Activity {
             if (subtitles != null) mPlaylistSubtitles = subtitles;
             mPlaylistIndex = b.getInt(EXTRA_PLAYLIST_INDEX, -1);
             mPlaylistOffset = b.getInt(EXTRA_PLAYLIST_OFFSET, 0);
-            mEpgNowTitle = orEmpty(b.getString(EXTRA_EPG_NOW_TITLE));
-            mEpgNowTime = orEmpty(b.getString(EXTRA_EPG_NOW_TIME));
-            mEpgNextTitle = orEmpty(b.getString(EXTRA_EPG_NEXT_TITLE));
-            mEpgNextTime = orEmpty(b.getString(EXTRA_EPG_NEXT_TIME));
+            ArrayList<String> epgTitles = b.getStringArrayList(EXTRA_EPG_TITLES);
+            if (epgTitles != null) mEpgTitles = epgTitles;
+            ArrayList<String> epgTimes = b.getStringArrayList(EXTRA_EPG_TIMES);
+            if (epgTimes != null) mEpgTimes = epgTimes;
         }
 
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
@@ -267,17 +262,14 @@ public class PlayerActivity extends Activity {
 
         mTopBar.addView(titleColumn);
 
-        mLiveBadge = new TextView(this);
-        mLiveBadge.setText("EN VIVO");
-        mLiveBadge.setTextColor(Color.WHITE);
-        mLiveBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        mLiveBadge.setBackgroundColor(ACCENT);
-        mLiveBadge.setPadding(dp(8), dp(3), dp(8), dp(3));
-        mLiveBadge.setVisibility(mIsLive ? View.VISIBLE : View.GONE);
-        mTopBar.addView(mLiveBadge);
-
         // Close sits on the right so the left column stays clear for the list.
-        ImageButton closeBtn = iconButton(android.R.drawable.ic_menu_close_clear_cancel, dp(38));
+        // Given its own faded red circle so it reads clearly over busy video.
+        ImageButton closeBtn = iconButton(android.R.drawable.ic_menu_close_clear_cancel, dp(40));
+        GradientDrawable closeBg = new GradientDrawable();
+        closeBg.setShape(GradientDrawable.OVAL);
+        closeBg.setColor(Color.argb(130, 229, 9, 20));
+        closeBtn.setBackground(closeBg);
+        closeBtn.setPadding(dp(8), dp(8), dp(8), dp(8));
         LinearLayout.LayoutParams closeParams = (LinearLayout.LayoutParams) closeBtn.getLayoutParams();
         closeParams.setMargins(dp(12), 0, 0, 0);
         closeBtn.setLayoutParams(closeParams);
@@ -416,9 +408,9 @@ public class PlayerActivity extends Activity {
         }
     }
 
-    /** Current + next programme for the channel, fading in over the right edge. */
+    /** Current programme + the next few, fading in over the right edge. */
     private void buildEpgPanel() {
-        if (!mIsLive || mEpgNowTitle.isEmpty()) return;
+        if (!mIsLive || mEpgTitles.isEmpty()) return;
 
         mEpgPanel = new LinearLayout(this);
         mEpgPanel.setOrientation(LinearLayout.VERTICAL);
@@ -440,18 +432,21 @@ public class PlayerActivity extends Activity {
         header.setPadding(0, 0, 0, dp(12));
         mEpgPanel.addView(header);
 
-        mEpgPanel.addView(buildEpgRow("AHORA", mEpgNowTime, mEpgNowTitle, true));
+        for (int i = 0; i < mEpgTitles.size(); i++) {
+            boolean current = i == 0;
+            String time = i < mEpgTimes.size() ? mEpgTimes.get(i) : "";
+            String label = current ? "AHORA" : "";
+            mEpgPanel.addView(buildEpgRow(label, time, mEpgTitles.get(i), current));
 
-        if (!mEpgNextTitle.isEmpty()) {
-            View divider = new View(this);
-            LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
-            dividerParams.setMargins(0, dp(14), 0, dp(14));
-            divider.setLayoutParams(dividerParams);
-            divider.setBackgroundColor(Color.argb(50, 255, 255, 255));
-            mEpgPanel.addView(divider);
-
-            mEpgPanel.addView(buildEpgRow("A CONTINUACIÓN", mEpgNextTime, mEpgNextTitle, false));
+            if (i < mEpgTitles.size() - 1) {
+                View divider = new View(this);
+                LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+                dividerParams.setMargins(0, dp(14), 0, dp(14));
+                divider.setLayoutParams(dividerParams);
+                divider.setBackgroundColor(Color.argb(50, 255, 255, 255));
+                mEpgPanel.addView(divider);
+            }
         }
 
         mOverlay.addView(mEpgPanel);
@@ -474,7 +469,9 @@ public class PlayerActivity extends Activity {
         column.setLayoutParams(columnParams);
 
         TextView labelText = new TextView(this);
-        labelText.setText(time.isEmpty() ? label : label + " · " + time);
+        String labelValue = label.isEmpty() ? time : (time.isEmpty() ? label : label + " · " + time);
+        labelText.setText(labelValue);
+        labelText.setVisibility(labelValue.isEmpty() ? View.GONE : View.VISIBLE);
         labelText.setTextColor(current ? ACCENT : Color.argb(150, 255, 255, 255));
         labelText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         column.addView(labelText);
@@ -710,7 +707,6 @@ public class PlayerActivity extends Activity {
         boolean live = mIsLive || mPlayer.getDuration() == C.TIME_UNSET || mPlayer.isCurrentMediaItemLive();
         if (live == mIsLive) return;
         mIsLive = live;
-        mLiveBadge.setVisibility(View.VISIBLE);
         mCenterBar.setVisibility(View.GONE);
         mBottomBar.setVisibility(View.GONE);
     }

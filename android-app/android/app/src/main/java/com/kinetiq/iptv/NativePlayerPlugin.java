@@ -54,10 +54,10 @@ public class NativePlayerPlugin extends Plugin {
                 toStringList(call.getArray("playlist", new JSArray())));
         intent.putStringArrayListExtra(PlayerActivity.EXTRA_PLAYLIST_SUBTITLES,
                 toStringList(call.getArray("playlistSubtitles", new JSArray())));
-        intent.putExtra(PlayerActivity.EXTRA_EPG_NOW_TITLE, call.getString("epgNowTitle", ""));
-        intent.putExtra(PlayerActivity.EXTRA_EPG_NOW_TIME, call.getString("epgNowTime", ""));
-        intent.putExtra(PlayerActivity.EXTRA_EPG_NEXT_TITLE, call.getString("epgNextTitle", ""));
-        intent.putExtra(PlayerActivity.EXTRA_EPG_NEXT_TIME, call.getString("epgNextTime", ""));
+        intent.putStringArrayListExtra(PlayerActivity.EXTRA_EPG_TITLES,
+                toStringList(call.getArray("epgTitles", new JSArray())));
+        intent.putStringArrayListExtra(PlayerActivity.EXTRA_EPG_TIMES,
+                toStringList(call.getArray("epgTimes", new JSArray())));
 
         startActivityForResult(call, intent, "playResult");
     }

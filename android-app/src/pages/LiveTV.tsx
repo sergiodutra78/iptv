@@ -149,16 +149,13 @@ const ChannelPlayerOverlay = ({
             .sort((a, b) => a.start.getTime() - b.start.getTime());
     }, [fullDayPrograms]);
 
-    // Current + next programme for the right-side panel in the native player.
-    const epgNowNext = useMemo(() => {
-        if (!currentProgram) return { now: undefined, next: undefined };
+    // Current programme + the next 3, for the right-side panel in the native player.
+    const epgItems = useMemo(() => {
+        if (!currentProgram) return [];
         const fmt = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const idx = todayPrograms.findIndex(p => p.start.getTime() === currentProgram.start.getTime());
-        const nextProg = idx >= 0 ? todayPrograms[idx + 1] : undefined;
-        return {
-            now: { title: currentProgram.title, time: fmt(currentProgram.start) },
-            next: nextProg ? { title: nextProg.title, time: fmt(nextProg.start) } : undefined,
-        };
+        if (idx < 0) return [{ title: currentProgram.title, time: fmt(currentProgram.start) }];
+        return todayPrograms.slice(idx, idx + 4).map(p => ({ title: p.title, time: fmt(p.start) }));
     }, [currentProgram, todayPrograms]);
 
     return (
@@ -180,8 +177,7 @@ const ChannelPlayerOverlay = ({
                 onSelectIndex={(index) => {
                     if (filteredChannels[index]) setSelectedChannel(filteredChannels[index]);
                 }}
-                epgNow={epgNowNext.now}
-                epgNext={epgNowNext.next}
+                epgItems={epgItems}
             />
 
             {showEPGGrid && (

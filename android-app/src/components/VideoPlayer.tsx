@@ -26,12 +26,11 @@ interface VideoPlayerProps {
     onSelectIndex?: (index: number) => void;
     /** Fired once, when this stream stops playing, with how far it got. */
     onPlaybackProgress?: (info: { url: string; positionSec: number; durationSec: number; completed: boolean }) => void;
-    /** Live only: current/next programme, shown in a panel on the right. */
-    epgNow?: { title: string; time?: string };
-    epgNext?: { title: string; time?: string };
+    /** Live only: current programme + the next few, shown in a panel on the right. */
+    epgItems?: { title: string; time?: string }[];
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 'live', onClose, onNext, onPrev, onToggleChannelList, onToggleEPG, playlist, playlistSubtitles, playlistIndex = -1, panelTitle, onSelectIndex, onPlaybackProgress, epgNow, epgNext }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 'live', onClose, onNext, onPrev, onToggleChannelList, onToggleEPG, playlist, playlistSubtitles, playlistIndex = -1, panelTitle, onSelectIndex, onPlaybackProgress, epgItems }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(true);
@@ -53,8 +52,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
 
     // Keep the callbacks/labels the native player needs reachable from the
     // promise it resolves long after this render.
-    const latest = useRef({ title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex, onPlaybackProgress, epgNow, epgNext });
-    latest.current = { title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex, onPlaybackProgress, epgNow, epgNext };
+    const latest = useRef({ title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex, onPlaybackProgress, epgItems });
+    latest.current = { title, subtitle, panelTitle, playlist, playlistSubtitles, playlistIndex, onClose, onNext, onPrev, onSelectIndex, onPlaybackProgress, epgItems };
 
     // The provider serves movies/series as MKV and live channels as MPEG-TS,
     // which the WebView's <video> and hls.js cannot decode. On device playback
@@ -83,10 +82,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
             hasNext: !!props.onNext,
             hasPrev: !!props.onPrev,
             startPositionMs: saved && saved.position > 30 ? Math.floor(saved.position * 1000) : 0,
-            epgNowTitle: props.epgNow?.title || '',
-            epgNowTime: props.epgNow?.time || '',
-            epgNextTitle: props.epgNext?.title || '',
-            epgNextTime: props.epgNext?.time || '',
+            epgTitles: (props.epgItems || []).map(item => item.title),
+            epgTimes: (props.epgItems || []).map(item => item.time || ''),
             ...listWindow,
         }).then(result => {
             const handlers = latest.current;
