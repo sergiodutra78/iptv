@@ -1,5 +1,5 @@
 diff --git a/node_modules/cordova-plugin-streaming-media/src/android/com/hutchind/cordova/plugins/streamingmedia/SimpleVideoStream.java b/node_modules/cordova-plugin-streaming-media/src/android/com/hutchind/cordova/plugins/streamingmedia/SimpleVideoStream.java
-index 463a747..423abd4 100644
+index 463a747..e1b3814 100644
 --- a/node_modules/cordova-plugin-streaming-media/src/android/com/hutchind/cordova/plugins/streamingmedia/SimpleVideoStream.java
 +++ b/node_modules/cordova-plugin-streaming-media/src/android/com/hutchind/cordova/plugins/streamingmedia/SimpleVideoStream.java
 @@ -1,24 +1,32 @@
@@ -42,7 +42,7 @@ index 463a747..423abd4 100644
  import android.widget.VideoView;
  
  public class SimpleVideoStream extends Activity implements
-@@ -27,22 +35,71 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+@@ -27,22 +35,77 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
  	private String TAG = getClass().getSimpleName();
  	private VideoView mVideoView = null;
  	private MediaPlayer mMediaPlayer = null;
@@ -50,6 +50,7 @@ index 463a747..423abd4 100644
  	private ProgressBar mProgressBar = null;
  	private String mVideoUrl;
 +	private String mTitle = "";
++	private String mSubtitle = "";
  	private Boolean mShouldAutoClose = true;
  	private boolean mControls;
 +	private boolean mHasNext = false;
@@ -66,6 +67,7 @@ index 463a747..423abd4 100644
 +	private ImageButton mFfBtn;
 +	private ImageButton mNextBtn;
 +	private TextView mTitleText;
++	private TextView mSubtitleText;
 +	private TextView mCurrentTimeText;
 +	private TextView mTotalTimeText;
 +	private TextView mLiveBadge;
@@ -109,13 +111,17 @@ index 463a747..423abd4 100644
  		mControls = b.getBoolean("controls", true);
 +		mHasNext = b.getBoolean("hasNext", false);
 +		mHasPrev = b.getBoolean("hasPrev", false);
++		mIsLive = b.getBoolean("isLive", false);
 +		if (b.getString("title") != null) {
 +			mTitle = b.getString("title");
++		}
++		if (b.getString("subtitle") != null) {
++			mSubtitle = b.getString("subtitle");
 +		}
  
  		RelativeLayout relLayout = new RelativeLayout(this);
  		relLayout.setBackgroundColor(Color.BLACK);
-@@ -63,13 +120,284 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+@@ -63,13 +126,298 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
  		relLayout.addView(mProgressBar);
  		mProgressBar.bringToFront();
  
@@ -162,16 +168,30 @@ index 463a747..423abd4 100644
 +		});
 +		mTopBar.addView(mCloseBtn);
 +
++		LinearLayout titleColumn = new LinearLayout(this);
++		titleColumn.setOrientation(LinearLayout.VERTICAL);
++		LinearLayout.LayoutParams titleColumnParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
++		titleColumnParams.setMargins(dpToPx(10), 0, dpToPx(10), 0);
++		titleColumn.setLayoutParams(titleColumnParams);
++
 +		mTitleText = new TextView(this);
 +		mTitleText.setText(mTitle);
 +		mTitleText.setTextColor(Color.WHITE);
 +		mTitleText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
 +		mTitleText.setSingleLine(true);
 +		mTitleText.setEllipsize(TextUtils.TruncateAt.END);
-+		LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-+		titleParams.setMargins(dpToPx(10), 0, 0, 0);
-+		mTitleText.setLayoutParams(titleParams);
-+		mTopBar.addView(mTitleText);
++		titleColumn.addView(mTitleText);
++
++		mSubtitleText = new TextView(this);
++		mSubtitleText.setText(mSubtitle);
++		mSubtitleText.setTextColor(Color.argb(190, 255, 255, 255));
++		mSubtitleText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
++		mSubtitleText.setSingleLine(true);
++		mSubtitleText.setEllipsize(TextUtils.TruncateAt.END);
++		mSubtitleText.setVisibility(mSubtitle.length() > 0 ? View.VISIBLE : View.GONE);
++		titleColumn.addView(mSubtitleText);
++
++		mTopBar.addView(titleColumn);
 +
 +		mLiveBadge = new TextView(this);
 +		mLiveBadge.setText("EN VIVO");
@@ -179,7 +199,7 @@ index 463a747..423abd4 100644
 +		mLiveBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
 +		mLiveBadge.setBackgroundColor(ACCENT);
 +		mLiveBadge.setPadding(dpToPx(8), dpToPx(3), dpToPx(8), dpToPx(3));
-+		mLiveBadge.setVisibility(View.GONE);
++		mLiveBadge.setVisibility(mIsLive ? View.VISIBLE : View.GONE);
 +		mTopBar.addView(mLiveBadge);
 +
 +		mOverlay.addView(mTopBar);
@@ -400,7 +420,7 @@ index 463a747..423abd4 100644
  	private void play() {
  		mProgressBar.setVisibility(View.VISIBLE);
  		Uri videoUri = Uri.parse(mVideoUrl);
-@@ -78,18 +406,44 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+@@ -78,18 +426,44 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
  			mVideoView.setOnPreparedListener(this);
  			mVideoView.setOnErrorListener(this);
  			mVideoView.setVideoURI(videoUri);
@@ -452,11 +472,11 @@ index 463a747..423abd4 100644
  	private void setOrientation(String orientation) {
  		if ("landscape".equals(orientation)) {
  			this.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-@@ -118,9 +472,20 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+@@ -118,9 +492,20 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
  		Log.d(TAG, "Stream is prepared");
  		mMediaPlayer = mp;
  		mMediaPlayer.setOnBufferingUpdateListener(this);
-+		mIsLive = mVideoView.getDuration() <= 0;
++		mIsLive = mIsLive || mVideoView.getDuration() <= 0;
 +		if (mIsLive) {
 +			mLiveBadge.setVisibility(View.VISIBLE);
 +			mBottomBar.setVisibility(View.GONE);
@@ -473,7 +493,7 @@ index 463a747..423abd4 100644
  	}
  
  	private void pause() {
-@@ -137,6 +502,8 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+@@ -137,6 +522,8 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
  	public void onDestroy() {
  		super.onDestroy();
  		Log.d(TAG, "onDestroy triggered.");
@@ -482,7 +502,7 @@ index 463a747..423abd4 100644
  		stop();
  	}
  
-@@ -152,7 +519,7 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+@@ -152,7 +539,7 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
  		Log.d(TAG, "onCompletion triggered.");
  		stop();
  		if (mShouldAutoClose) {
@@ -491,7 +511,7 @@ index 463a747..423abd4 100644
  		}
  	}
  
-@@ -189,7 +556,7 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+@@ -189,7 +576,7 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
  	@Override
  	public void onBackPressed() {
  		// If we're leaving, let's finish the activity
@@ -500,7 +520,7 @@ index 463a747..423abd4 100644
  	}
  
  	@Override
-@@ -197,11 +564,4 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
+@@ -197,11 +584,4 @@ MediaPlayer.OnErrorListener, MediaPlayer.OnBufferingUpdateListener {
  		// The screen size changed or the orientation changed... don't restart the activity
  		super.onConfigurationChanged(newConfig);
  	}

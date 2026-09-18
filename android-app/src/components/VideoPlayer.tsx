@@ -61,6 +61,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
                 setErrorDetails(`Native Player Error: ${e || 'Error desconocido'}`);
             },
             title: title || '',
+            subtitle: subtitle || '',
+            isLive: type === 'live',
             hasNext: !!onNext,
             hasPrev: !!onPrev,
             orientation: 'landscape',
@@ -80,6 +82,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, subtitle, type = 
         videoRef.current.src = '';
 
         let streamUrl = url;
+
+        // On device always use the native player: the provider serves .mkv and
+        // .ts, which the WebView cannot decode, and it keeps one single set of
+        // playback controls across live, movies and series. The web player
+        // below only runs in the browser during development.
+        if (playNative(streamUrl)) return;
 
         const isHls = streamUrl.toLowerCase().includes('.m3u8') || streamUrl.includes('type=m3u8') || streamUrl.includes('output=m3u8');
 

@@ -177,12 +177,12 @@ const Series = () => {
 
     if (selectedSeries) {
         return (
-            <div className="flex flex-col h-full bg-zinc-950 overflow-hidden">
-                <div className="relative h-60 sm:h-80 w-full overflow-hidden flex-shrink-0">
+            <div className="flex flex-col h-full bg-zinc-950 overflow-y-auto">
+                <div className="relative h-60 sm:h-80 landscape:h-44 w-full overflow-hidden flex-shrink-0">
                     <img src={metadata?.backdropUrl || selectedSeries.logo} alt={selectedSeries.name} className="absolute inset-0 w-full h-full object-cover blur-md opacity-40 scale-105" />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent" />
 
-                    <div className="relative h-full flex items-end p-6 gap-6 max-w-7xl mx-auto w-full">
+                    <div className="relative h-full flex items-end p-6 landscape:p-3 gap-6 landscape:gap-3 max-w-7xl mx-auto w-full">
                         <div className="hidden sm:block flex-shrink-0 w-36 h-52 rounded-2xl overflow-hidden shadow-2xl border border-zinc-800/50">
                             <img src={metadata?.posterUrl || selectedSeries.logo} alt={selectedSeries.name} className="w-full h-full object-cover" />
                         </div>
@@ -195,7 +195,7 @@ const Series = () => {
                                 <span className="text-sm font-bold uppercase tracking-wider">Volver</span>
                             </button>
 
-                            <h1 className="text-2xl sm:text-4xl font-black italic tracking-tighter mb-2 uppercase leading-none">{selectedSeries.name}</h1>
+                            <h1 className="text-2xl sm:text-4xl landscape:text-xl font-black italic tracking-tighter mb-2 landscape:mb-1 uppercase leading-none">{selectedSeries.name}</h1>
 
                             <div className="flex flex-wrap items-center gap-2 mb-3">
                                 {metadata?.rating && (
@@ -210,15 +210,15 @@ const Series = () => {
                             </div>
 
                             {metadata?.description && (
-                                <p className="text-zinc-300 text-sm leading-relaxed max-w-3xl line-clamp-3 backdrop-blur-sm bg-black/20 p-3 rounded-lg border border-white/5">{metadata.description}</p>
+                                <p className="text-zinc-300 text-sm landscape:text-xs leading-relaxed max-w-3xl line-clamp-3 landscape:line-clamp-2 backdrop-blur-sm bg-black/20 p-3 landscape:p-2 rounded-lg border border-white/5">{metadata.description}</p>
                             )}
                         </div>
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 pt-4">
+                <div className="p-6 pt-4 landscape:p-3">
                     <div className="max-w-7xl mx-auto">
-                        <h2 className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4">Capítulos Disponibles</h2>
+                        <h2 className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4 landscape:mb-2">Capítulos Disponibles</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             {selectedSeries.episodes.map((ep, index) => {
                                 const watched = WatchedService.isWatched(ep.url);
