@@ -1,0 +1,11 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="uy-4" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/e/ee/Canal_4_Uruguay_Logo.png" group-title="Uruguay",Canal 4
+https://live-video.canal4.com.uy/live/canal4.m3u8
+#EXTINF:-1 tvg-id="uy-5" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/f/ff/Logo_Canal_5_Uruguay.png" group-title="Uruguay",Canal 5 (TNU)
+https://mdstrm.com/live-stream-playlist/58b093def7452d3a771b0ba6.m3u8
+#EXTINF:-1 tvg-id="uy-10" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/1/12/Canal_10_Uruguay.png" group-title="Uruguay",Canal 10
+https://unlimited6-uy.dps.live/canal10/canal10.smil/playlist.m3u8
+#EXTINF:-1 tvg-id="uy-12" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/0/07/Teledoce_logo.png" group-title="Uruguay",Teledoce (Canal 12)
+https://unlimited1-uy.dps.live/teledoce/teledoce.smil/playlist.m3u8
+#EXTINF:-1 tvg-id="uy-vtv" tvg-logo="https://i.ibb.co/Drx6fgZ/Logo-white.png" group-title="Uruguay",VIVO TV
+https://stream.vivotv.uy/hls/stream.m3u8
