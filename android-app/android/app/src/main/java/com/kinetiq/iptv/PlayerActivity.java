@@ -125,6 +125,7 @@ public class PlayerActivity extends Activity {
     private boolean mControlsVisible = true;
     private boolean mUserSeeking = false;
     private boolean mFinished = false;
+    private long mLastLocalSaveMs = 0;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
 
     private final Runnable mHideRunnable = new Runnable() {
@@ -138,6 +139,11 @@ public class PlayerActivity extends Activity {
         @Override
         public void run() {
             updateProgress();
+            long now = System.currentTimeMillis();
+            if (!mIsLive && now - mLastLocalSaveMs > 5000) {
+                mLastLocalSaveMs = now;
+                saveProgressLocally();
+            }
             mHandler.postDelayed(this, 500);
         }
     };
@@ -158,6 +164,16 @@ public class PlayerActivity extends Activity {
             mHasNext = b.getBoolean(EXTRA_HAS_NEXT, false);
             mHasPrev = b.getBoolean(EXTRA_HAS_PREV, false);
             mStartPositionMs = b.getLong(EXTRA_START_POSITION, 0L);
+            // The web layer only learns the stopping point once this activity
+            // finishes cleanly. If the app was killed mid-playback instead (home
+            // button, task swipe, low memory), that round trip never happened, so
+            // fall back to what this activity itself persisted while playing.
+            if (!mIsLive) {
+                long localSaved = loadSavedPosition(mUrl);
+                if (localSaved > 30000 && localSaved > mStartPositionMs) {
+                    mStartPositionMs = localSaved;
+                }
+            }
             ArrayList<String> list = b.getStringArrayList(EXTRA_PLAYLIST);
             if (list != null) mPlaylist = list;
             ArrayList<String> subtitles = b.getStringArrayList(EXTRA_PLAYLIST_SUBTITLES);
@@ -757,6 +773,47 @@ public class PlayerActivity extends Activity {
         mTotalTimeText.setText(formatTime(duration));
     }
 
+    // ----------------------------------------------------- local resume cache
+
+    // A small on-disk safety net, independent of the web layer's own progress
+    // store: written while playing so a title resumes correctly even if the
+    // app process is killed before it can hand the final position back to JS.
+    private static final String PROGRESS_PREFS = "kinetiq_progress";
+    private static final double PROGRESS_COMPLETE_THRESHOLD = 0.95;
+
+    private long loadSavedPosition(String url) {
+        if (url == null) return 0L;
+        String raw = getSharedPreferences(PROGRESS_PREFS, MODE_PRIVATE).getString(url, null);
+        if (raw == null) return 0L;
+        int sep = raw.indexOf('|');
+        if (sep < 0) return 0L;
+        try {
+            return Long.parseLong(raw.substring(0, sep));
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
+    }
+
+    private void saveProgressLocally() {
+        if (mPlayer == null || mIsLive || mUrl == null) return;
+        long duration = mPlayer.getDuration();
+        if (duration == C.TIME_UNSET || duration < 120000) return;
+        long position = mPlayer.getCurrentPosition();
+        if (position / (double) duration >= PROGRESS_COMPLETE_THRESHOLD) {
+            clearProgressLocally();
+            return;
+        }
+        getSharedPreferences(PROGRESS_PREFS, MODE_PRIVATE)
+                .edit()
+                .putString(mUrl, position + "|" + duration)
+                .apply();
+    }
+
+    private void clearProgressLocally() {
+        if (mUrl == null) return;
+        getSharedPreferences(PROGRESS_PREFS, MODE_PRIVATE).edit().remove(mUrl).apply();
+    }
+
     // --------------------------------------------------------------- chrome
 
     private void setControlsVisible(boolean visible) {
@@ -818,6 +875,7 @@ public class PlayerActivity extends Activity {
     private void finishWith(String reason, int index) {
         if (mFinished) return;
         mFinished = true;
+        saveProgressLocally();
         Intent intent = new Intent();
         intent.putExtra(RESULT_REASON, reason);
         intent.putExtra(RESULT_INDEX, index);
@@ -836,12 +894,16 @@ public class PlayerActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        // Covers the app being backgrounded via Home/recents without an explicit
+        // close, which never reaches finishWith to hand progress back to JS.
+        saveProgressLocally();
         if (mPlayer != null) mPlayer.pause();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        saveProgressLocally();
         mHandler.removeCallbacks(mHideRunnable);
         mHandler.removeCallbacks(mProgressRunnable);
         if (mPlayer != null) {
