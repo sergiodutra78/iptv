@@ -6,6 +6,7 @@ import CachedImage from '../components/CachedImage';
 import { getActivePlaylistUrl, IPTV_CONFIG } from '../config/iptv';
 import { DataService } from '../services/dataService';
 import { EPGService, type EPGData } from '../services/epgService';
+import { focusableCard } from '../utils/tvFocus';
 
 const ITEMS_PER_PAGE = 30;
 
@@ -43,7 +44,8 @@ const ChannelItem = ({ channel, epgData, viewMode, onSelect, isSelected, configT
         return (
             <div
                 onClick={() => onSelect(channel)}
-                className={`bg-zinc-900/50 border ${isSelected ? 'border-primary' : 'border-zinc-800'} rounded-xl overflow-hidden cursor-pointer group flex flex-col active:scale-95 transition-transform`}
+                {...focusableCard(() => onSelect(channel))}
+                className={`bg-zinc-900/50 border ${isSelected ? 'border-primary' : 'border-zinc-800'} rounded-xl overflow-hidden cursor-pointer group flex flex-col active:scale-95 transition-transform outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary`}
             >
                 <div className="aspect-video bg-zinc-800 flex items-center justify-center relative p-3">
                     {channel.logo ? (
@@ -51,8 +53,8 @@ const ChannelItem = ({ channel, epgData, viewMode, onSelect, isSelected, configT
                     ) : (
                         <Tv size={28} className="text-zinc-700" />
                     )}
-                    <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/20 transition-all flex items-center justify-center pointer-events-none">
-                        <Play className="text-white opacity-0 group-hover:opacity-100 scale-50 group-hover:scale-100 transition-all" fill="currentColor" size={28} />
+                    <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/20 group-focus-visible:bg-primary/20 transition-all flex items-center justify-center pointer-events-none">
+                        <Play className="text-white opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 scale-50 group-hover:scale-100 group-focus-visible:scale-100 transition-all" fill="currentColor" size={28} />
                     </div>
                 </div>
                 <div className="p-2 flex-1 flex flex-col">
@@ -70,7 +72,8 @@ const ChannelItem = ({ channel, epgData, viewMode, onSelect, isSelected, configT
     return (
         <div
             onClick={() => onSelect(channel)}
-            className={`bg-zinc-900/50 border ${isSelected ? 'border-primary' : 'border-zinc-800/80'} rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all group active:scale-95`}
+            {...focusableCard(() => onSelect(channel))}
+            className={`bg-zinc-900/50 border ${isSelected ? 'border-primary' : 'border-zinc-800/80'} rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all group active:scale-95 outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary`}
         >
             <div className="w-12 h-12 bg-black/40 rounded-lg flex-shrink-0 flex items-center justify-center p-1 border border-zinc-800">
                 {channel.logo ? (

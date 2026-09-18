@@ -9,6 +9,7 @@ import VideoPlayer from '../components/VideoPlayer';
 import { Search, PlayCircle, Loader2, LayoutGrid, List, ChevronLeft, CheckCircle2, Star } from 'lucide-react';
 import { MetadataService, type MediaMetadata } from '../services/metadataService';
 import { BackHandlerStack } from '../services/backHandlerStack';
+import { focusableCard } from '../utils/tvFocus';
 
 const ITEMS_PER_PAGE = 40;
 
@@ -28,7 +29,8 @@ const SeriesListItem = ({ item, onClick }: { item: GroupedSeries, onClick: () =>
     return (
         <div
             onClick={onClick}
-            className="flex items-center gap-4 p-4 bg-zinc-900/40 hover:bg-zinc-800/80 border border-zinc-800/50 hover:border-primary/50 rounded-xl cursor-pointer transition-all group"
+            {...focusableCard(onClick)}
+            className="flex items-center gap-4 p-4 bg-zinc-900/40 hover:bg-zinc-800/80 border border-zinc-800/50 hover:border-primary/50 rounded-xl cursor-pointer transition-all group outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
         >
             {(metadata?.posterUrl || item.logo) ? (
                 <div className="w-16 h-24 flex-shrink-0 bg-black rounded-lg overflow-hidden shadow-lg">
@@ -237,7 +239,8 @@ const Series = () => {
                                     <div
                                         key={ep.url + index}
                                         onClick={() => handlePlayEpisode(ep)}
-                                        className="flex items-center gap-4 p-4 bg-zinc-900/40 hover:bg-zinc-900 border border-zinc-800/50 hover:border-primary/50 rounded-xl cursor-pointer transition-all group overflow-hidden relative"
+                                        {...focusableCard(() => handlePlayEpisode(ep))}
+                                        className="flex items-center gap-4 p-4 bg-zinc-900/40 hover:bg-zinc-900 border border-zinc-800/50 hover:border-primary/50 rounded-xl cursor-pointer transition-all group overflow-hidden relative outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                                     >
                                         <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0 group-hover:bg-primary transition-colors">
                                             {watched ? (

@@ -6,6 +6,7 @@ import { MetadataService, type MediaMetadata } from '../services/metadataService
 import { FavoritesService } from '../services/FavoritesService';
 import { WatchProgressService } from '../services/WatchProgressService';
 import { WatchedService } from '../services/WatchedService';
+import { focusableCard } from '../utils/tvFocus';
 
 interface MovieCardProps {
     movie: Channel;
@@ -62,10 +63,11 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
     return (
         <div
             ref={cardRef}
-            className="movie-card group relative cursor-pointer flex flex-col"
+            className="movie-card group relative cursor-pointer flex flex-col outline-none"
             onClick={() => onClick(movie)}
+            {...focusableCard(() => onClick(movie))}
         >
-            <div className="aspect-[2/3] bg-zinc-900 rounded-md overflow-hidden border border-zinc-800 transition-all group-hover:border-primary/50">
+            <div className="aspect-[2/3] bg-zinc-900 rounded-md overflow-hidden border border-zinc-800 transition-all group-hover:border-primary/50 group-focus-visible:border-primary group-focus-visible:ring-2 group-focus-visible:ring-primary">
                 {(metadata?.posterUrl || movie.logo) && isInView ? (
                     <div className="absolute inset-0 flex items-center justify-center p-2">
                         <div
@@ -91,6 +93,7 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
 
                 {/* Botón de favorito */}
                 <button
+                    tabIndex={-1}
                     onClick={toggleFavorite}
                     title={isFav ? 'Quitar de favoritos' : 'Añadir a favoritos'}
                     className={`absolute top-2 right-2 z-20 p-2 rounded-full backdrop-blur-md border transition-all ${isFav ? 'bg-primary/90 border-primary text-white' : 'bg-black/40 border-white/10 text-white/80 opacity-0 group-hover:opacity-100 hover:bg-black/60'}`}
@@ -113,16 +116,17 @@ const MovieCard = ({ movie, onClick }: MovieCardProps) => {
                 )}
 
                 {/* Overlay con titulo y botones */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-100 group-hover:via-black/40 group-hover:from-black transition-all flex flex-col justify-end p-3">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-100 group-hover:via-black/40 group-hover:from-black group-focus-visible:via-black/40 group-focus-visible:from-black transition-all flex flex-col justify-end p-3">
                     <h4 className="text-[11px] font-black text-white mb-2 leading-tight drop-shadow-lg">
                         {movie.name}
                     </h4>
 
-                    <div className="flex gap-1.5 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
-                        <button className="flex-1 bg-white text-black py-1.5 rounded text-[10px] font-black flex items-center justify-center gap-1 hover:bg-zinc-200 transition-colors">
+                    <div className="flex gap-1.5 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 group-focus-visible:opacity-100 group-focus-visible:translate-y-0 transition-all duration-300">
+                        <button tabIndex={-1} className="flex-1 bg-white text-black py-1.5 rounded text-[10px] font-black flex items-center justify-center gap-1 hover:bg-zinc-200 transition-colors">
                             <Play size={10} fill="black" /> Ver
                         </button>
                         <button
+                            tabIndex={-1}
                             onClick={toggleFavorite}
                             className={`p-1.5 rounded transition-colors ${isFav ? 'bg-primary text-white' : 'bg-zinc-800/80 text-white hover:bg-zinc-700'}`}
                         >

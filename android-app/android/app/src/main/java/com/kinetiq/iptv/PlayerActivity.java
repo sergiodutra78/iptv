@@ -14,6 +14,7 @@ import android.os.Looper;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -98,6 +99,7 @@ public class PlayerActivity extends Activity {
     private LinearLayout mPanel;
     private ListView mPanelList;
     private LinearLayout mEpgPanel;
+    private ImageButton mCloseBtn;
     private ImageButton mPlayPauseBtn;
     private ImageButton mPrevBtn;
     private ImageButton mNextBtn;
@@ -230,6 +232,11 @@ public class PlayerActivity extends Activity {
                 setControlsVisible(!mControlsVisible);
             }
         });
+        // Being clickable also makes it a focus candidate, which on a D-pad
+        // let it steal initial focus away from the actual buttons - it only
+        // needs to react to a touch tap, never to be focused itself.
+        mOverlay.setFocusable(false);
+        mOverlay.setFocusableInTouchMode(false);
 
         buildTopBar();
         buildBottomBar();
@@ -280,22 +287,31 @@ public class PlayerActivity extends Activity {
 
         // Close sits on the right so the left column stays clear for the list.
         // Given its own faded red circle so it reads clearly over busy video.
-        ImageButton closeBtn = iconButton(android.R.drawable.ic_menu_close_clear_cancel, dp(40));
-        GradientDrawable closeBg = new GradientDrawable();
+        mCloseBtn = iconButton(android.R.drawable.ic_menu_close_clear_cancel, dp(40));
+        final GradientDrawable closeBg = new GradientDrawable();
         closeBg.setShape(GradientDrawable.OVAL);
         closeBg.setColor(Color.argb(130, 229, 9, 20));
-        closeBtn.setBackground(closeBg);
-        closeBtn.setPadding(dp(8), dp(8), dp(8), dp(8));
-        LinearLayout.LayoutParams closeParams = (LinearLayout.LayoutParams) closeBtn.getLayoutParams();
+        mCloseBtn.setBackground(closeBg);
+        mCloseBtn.setPadding(dp(8), dp(8), dp(8), dp(8));
+        LinearLayout.LayoutParams closeParams = (LinearLayout.LayoutParams) mCloseBtn.getLayoutParams();
         closeParams.setMargins(dp(12), 0, 0, 0);
-        closeBtn.setLayoutParams(closeParams);
-        closeBtn.setOnClickListener(new View.OnClickListener() {
+        mCloseBtn.setLayoutParams(closeParams);
+        mCloseBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 finishWith("close", -1);
             }
         });
-        mTopBar.addView(closeBtn);
+        // A remote has no mouse hover, so focus needs its own visible state.
+        mCloseBtn.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                closeBg.setColor(hasFocus ? Color.argb(220, 229, 9, 20) : Color.argb(130, 229, 9, 20));
+                v.setScaleX(hasFocus ? 1.12f : 1f);
+                v.setScaleY(hasFocus ? 1.12f : 1f);
+            }
+        });
+        mTopBar.addView(mCloseBtn);
 
         mOverlay.addView(mTopBar);
     }
@@ -383,7 +399,13 @@ public class PlayerActivity extends Activity {
 
         mPanelList = new ListView(this);
         mPanelList.setDivider(null);
-        mPanelList.setSelector(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+        // Transparent for a touch tap (which shows no lingering highlight),
+        // but a D-pad needs to see which row it has moved to, so give the
+        // selector a visible fill and draw it above the row content.
+        GradientDrawable listSelector = new GradientDrawable();
+        listSelector.setColor(Color.argb(70, 255, 255, 255));
+        mPanelList.setSelector(listSelector);
+        mPanelList.setDrawSelectorOnTop(true);
         mPanelList.setCacheColorHint(Color.TRANSPARENT);
         mPanelList.setVerticalScrollBarEnabled(false);
         mPanelList.setLayoutParams(new LinearLayout.LayoutParams(
@@ -529,6 +551,7 @@ public class PlayerActivity extends Activity {
                 finishWith("prev", -1);
             }
         });
+        addFocusBackgroundEffect(mPrevBtn);
         mPrevBtn.setVisibility(mHasPrev ? View.VISIBLE : View.GONE);
         addSpaced(mCenterBar, mPrevBtn);
 
@@ -539,6 +562,7 @@ public class PlayerActivity extends Activity {
                 seekBy(-SKIP_MS);
             }
         });
+        addFocusBackgroundEffect(mRewBtn);
         mRewBtn.setVisibility(mIsLive ? View.GONE : View.VISIBLE);
         addSpaced(mCenterBar, mRewBtn);
 
@@ -549,6 +573,7 @@ public class PlayerActivity extends Activity {
                 togglePlayback();
             }
         });
+        addFocusBackgroundEffect(mPlayPauseBtn);
         addSpaced(mCenterBar, mPlayPauseBtn);
 
         mFfBtn = iconButton(android.R.drawable.ic_media_ff, dp(42));
@@ -558,6 +583,7 @@ public class PlayerActivity extends Activity {
                 seekBy(SKIP_MS);
             }
         });
+        addFocusBackgroundEffect(mFfBtn);
         mFfBtn.setVisibility(mIsLive ? View.GONE : View.VISIBLE);
         addSpaced(mCenterBar, mFfBtn);
 
@@ -568,6 +594,7 @@ public class PlayerActivity extends Activity {
                 finishWith("next", -1);
             }
         });
+        addFocusBackgroundEffect(mNextBtn);
         mNextBtn.setVisibility(mHasNext ? View.VISIBLE : View.GONE);
         addSpaced(mCenterBar, mNextBtn);
 
@@ -827,8 +854,19 @@ public class PlayerActivity extends Activity {
         mOverlay.setBackgroundColor(visible ? SCRIM : Color.TRANSPARENT);
         if (visible) {
             scheduleHide();
+            focusDefaultControl();
         } else {
             mHandler.removeCallbacks(mHideRunnable);
+        }
+    }
+
+    // A remote has nothing focused until something claims it, so point the
+    // first D-pad press somewhere useful instead of leaving it to chance.
+    private void focusDefaultControl() {
+        if (!mIsLive && mPlayPauseBtn != null) {
+            mPlayPauseBtn.requestFocus();
+        } else if (mCloseBtn != null) {
+            mCloseBtn.requestFocus();
         }
     }
 
@@ -862,7 +900,14 @@ public class PlayerActivity extends Activity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) hideSystemBars();
+        if (hasFocus) {
+            hideSystemBars();
+            // A requestFocus() called before the window actually has focus
+            // (e.g. from startPlayback() during onCreate) can be silently
+            // dropped, leaving a remote's first D-pad press with nothing to
+            // move from. Grab it again now that focus is guaranteed to stick.
+            if (mControlsVisible) focusDefaultControl();
+        }
     }
 
     @Override
@@ -889,6 +934,48 @@ public class PlayerActivity extends Activity {
     @Override
     public void onBackPressed() {
         finishWith("close", -1);
+    }
+
+    // Controls are GONE (not just dimmed) while hidden, so nothing is
+    // focusable for a D-pad to land on. Treat the first press as "reveal
+    // the controls" instead of losing it.
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (!mControlsVisible && isDpadKey(keyCode)) {
+            setControlsVisible(true);
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    private boolean isDpadKey(int keyCode) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_DPAD_CENTER:
+            case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_DPAD_UP:
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    // Whether a focused view "clicks" on OK is otherwise left to Android's
+    // touch-mode/focus heuristics, which are inconsistent right after the
+    // window first gains focus. Driving it explicitly makes remote OK presses
+    // reliable regardless of that state.
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if ((keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) && mControlsVisible) {
+            View focused = getCurrentFocus();
+            if (focused != null && focused.isClickable()) {
+                focused.performClick();
+                return true;
+            }
+        }
+        return super.onKeyUp(keyCode, event);
     }
 
     @Override
@@ -923,6 +1010,26 @@ public class PlayerActivity extends Activity {
         button.setPadding(dp(6), dp(6), dp(6), dp(6));
         button.setLayoutParams(new LinearLayout.LayoutParams(size, size));
         return button;
+    }
+
+    // A remote has no mouse hover, so every transport button needs its own
+    // visible state when a D-pad moves focus onto it.
+    private void addFocusBackgroundEffect(final View view) {
+        view.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                if (hasFocus) {
+                    GradientDrawable bg = new GradientDrawable();
+                    bg.setShape(GradientDrawable.OVAL);
+                    bg.setColor(Color.argb(70, 255, 255, 255));
+                    v.setBackground(bg);
+                } else {
+                    v.setBackground(null);
+                }
+                v.setScaleX(hasFocus ? 1.12f : 1f);
+                v.setScaleY(hasFocus ? 1.12f : 1f);
+            }
+        });
     }
 
     private void addSpaced(LinearLayout parent, View child) {

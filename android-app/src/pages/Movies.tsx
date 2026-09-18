@@ -9,6 +9,7 @@ import { MetadataService, type MediaMetadata } from '../services/metadataService
 import { WatchProgressService } from '../services/WatchProgressService';
 import { WatchedService } from '../services/WatchedService';
 import { BackHandlerStack } from '../services/backHandlerStack';
+import { focusableCard } from '../utils/tvFocus';
 
 const formatProgressTime = (seconds: number): string => {
     const h = Math.floor(seconds / 3600);
@@ -45,7 +46,8 @@ const MovieListItem = ({ item, onClick }: { item: any, onClick: () => void }) =>
     return (
         <div
             onClick={onClick}
-            className="flex items-center gap-4 p-4 bg-zinc-900/40 hover:bg-zinc-800/80 border border-zinc-800/50 hover:border-primary/50 rounded-xl cursor-pointer transition-all group"
+            {...focusableCard(onClick)}
+            className="flex items-center gap-4 p-4 bg-zinc-900/40 hover:bg-zinc-800/80 border border-zinc-800/50 hover:border-primary/50 rounded-xl cursor-pointer transition-all group outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
         >
             {(metadata?.posterUrl || item.logo) ? (
                 <div className="w-16 h-24 flex-shrink-0 bg-black rounded-lg overflow-hidden relative shadow-lg">

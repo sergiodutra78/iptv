@@ -73,9 +73,19 @@
   transition: transform 0.3s ease;
 }
 
-.movie-card:hover {
+.movie-card:hover,
+.movie-card:focus-visible {
   transform: scale(1.1);
   z-index: 10;
+}
+
+/* Google TV remote: every focusable element (buttons, nav, links) gets a
+   clear branded ring instead of Chromium's thin default outline. Only
+   fires for keyboard/D-pad focus, never for a mouse/touch click. */
+:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 .channel-card-hover {
