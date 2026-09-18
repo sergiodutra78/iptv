@@ -4,7 +4,6 @@ android {
     namespace = "com.kinetiq.iptv"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.kinetiq.iptv"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -20,6 +19,21 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    // Same app, two install targets: "mobile" is the existing phone/tablet
+    // APK (unchanged applicationId), "tv" adds the Google TV leanback
+    // launcher entry + banner via src/tv and ships under its own package so
+    // both can be installed side by side.
+    flavorDimensions = ["device"]
+    productFlavors {
+        mobile {
+            dimension "device"
+            applicationId "com.kinetiq.iptv"
+        }
+        tv {
+            dimension "device"
+            applicationId "com.kinetiq.iptv.tv"
         }
     }
 }
